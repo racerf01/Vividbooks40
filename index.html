@@ -1,0 +1,52 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Documentation Website Specification</title>
+    <!-- Cooper Light font - preload -->
+    <link rel="preload" href="https://jjpiguuubvmiobmixwgh.supabase.co/storage/v1/object/public/Admin%20math/Cooper-Light.otf" as="font" type="font/otf" crossorigin />
+    <style>
+      /* Cooper Light font definition in HTML for early loading */
+      @font-face {
+        font-family: 'Cooper Light';
+        src: url('https://jjpiguuubvmiobmixwgh.supabase.co/storage/v1/object/public/Admin%20math/Cooper-Light.otf') format('opentype');
+        font-weight: 300;
+        font-style: normal;
+        font-display: swap;
+      }
+      /* Force browser to download the font immediately */
+      .cooper-loader {
+        font-family: 'Cooper Light', serif;
+        font-weight: 300;
+        position: absolute;
+        left: -9999px;
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+    <!-- SPA redirect script for GitHub Pages -->
+    <script type="text/javascript">
+      (function(l) {
+        if (l.search[1] === '/' ) {
+          var decoded = l.search.slice(1).split('&').map(function(s) { 
+            return s.replace(/~and~/g, '&')
+          }).join('?');
+          window.history.replaceState(null, null,
+              l.pathname.slice(0, -1) + decoded + l.hash
+          );
+        }
+      }(window.location))
+    </script>
+    <script type="module" crossorigin src="/Vividbooks40/assets/index-CQ8W6Qe-.js"></script>
+    <link rel="stylesheet" crossorigin href="/Vividbooks40/assets/index-6GQMwS85.css">
+  </head>
+
+  <body>
+    <!-- Hidden element forces browser to load Cooper Light font -->
+    <div class="cooper-loader" aria-hidden="true">ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789</div>
+    <div id="root"></div>
+  </body>
+</html>
+  
