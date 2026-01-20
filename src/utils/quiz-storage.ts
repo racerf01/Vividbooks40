@@ -629,6 +629,39 @@ export function getQuizSyncStatus(id: string): SyncStatus {
 }
 
 /**
+ * Manually sync a quiz to Supabase (for local-only quizzes)
+ * Returns true if successful, false otherwise
+ */
+export async function manualSyncQuizToSupabase(id: string): Promise<boolean> {
+  try {
+    const quiz = getQuiz(id);
+    if (!quiz) {
+      console.error('[QuizStorage] Quiz not found for sync:', id);
+      return false;
+    }
+    
+    const quizzes = getQuizList();
+    const listItem = quizzes.find(q => q.id === id);
+    if (!listItem) {
+      console.error('[QuizStorage] Quiz list item not found:', id);
+      return false;
+    }
+    
+    console.log('[QuizStorage] Manual sync starting for:', id);
+    await syncQuizToSupabase(quiz, listItem);
+    
+    // Mark as synced
+    supabaseQuizIds.add(id);
+    
+    console.log('[QuizStorage] Manual sync completed for:', id);
+    return true;
+  } catch (error) {
+    console.error('[QuizStorage] Manual sync failed:', error);
+    return false;
+  }
+}
+
+/**
  * Get debug info for a quiz
  */
 export function getQuizDebugInfo(id: string): string {

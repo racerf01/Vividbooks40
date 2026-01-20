@@ -111,7 +111,8 @@ import {
   getQuizSyncStatus,
   getQuizDebugInfo,
   forceDeleteFromSupabase,
-  SyncStatus
+  SyncStatus,
+  manualSyncQuizToSupabase
 } from '../utils/quiz-storage';
 import { getFileSyncStatus, getFileDebugInfo } from '../utils/file-storage';
 import { getLinkSyncStatus, getLinkDebugInfo } from '../utils/link-storage';
@@ -619,7 +620,7 @@ const WorksheetPreviewCard = React.forwardRef<HTMLDivElement, {
 const QuizPreviewCard = React.forwardRef<HTMLDivElement, { 
   quiz: QuizListItem;
   onClick: () => void;
-  onMenuClick: (action: 'edit' | 'duplicate' | 'delete' | 'move') => void;
+  onMenuClick: (action: 'edit' | 'duplicate' | 'delete' | 'move' | 'sync') => void;
   onDragStart?: (e: React.DragEvent) => void;
   isSelected?: boolean;
   onSelect?: (e: React.MouseEvent) => void;
@@ -635,7 +636,8 @@ const QuizPreviewCard = React.forwardRef<HTMLDivElement, {
 }, ref) => {
   // Get quiz data for preview
   const quizData = getQuiz(quiz.id);
-  const displayName = quiz.title || 'Bez názvu';
+  const displayName = quiz.title || 'Bez názву';
+  const syncStatus = getQuizSyncStatus(quiz.id);
   const slidesCount = quiz.slidesCount || 0;
   
   // Get first slide data for preview
@@ -811,6 +813,18 @@ const QuizPreviewCard = React.forwardRef<HTMLDivElement, {
               <FolderInput className="h-4 w-4 mr-2" />
               Přesunout do složky
             </DropdownMenuItem>
+            {syncStatus === 'local' && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={(e) => { e.stopPropagation(); onMenuClick('sync'); }}
+                  className="text-blue-600"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Nahrát do cloudu
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem 
               onClick={(e) => { e.stopPropagation(); onMenuClick('delete'); }}
@@ -3203,6 +3217,22 @@ export function MyContentLayout({ theme, toggleTheme }: MyContentLayoutProps) {
                               setQuizzes(getQuizList());
                               toast.success('Board byl smazán');
                             }
+                            if (action === 'sync') {
+                              toast.promise(
+                                manualSyncQuizToSupabase(quiz.id),
+                                {
+                                  loading: 'Nahrávám do cloudu...',
+                                  success: (result) => {
+                                    if (result) {
+                                      setQuizzes(getQuizList());
+                                      return 'Board byl nahrán do cloudu';
+                                    }
+                                    throw new Error('Sync failed');
+                                  },
+                                  error: 'Nepodařilo se nahrát do cloudu',
+                                }
+                              );
+                            }
                           }}
                           onDragStart={(e) => {
                             e.dataTransfer.setData('documentId', quiz.id);
@@ -4655,6 +4685,22 @@ export function MyContentLayout({ theme, toggleTheme }: MyContentLayoutProps) {
                                 deleteQuizFromStorage(quiz.id);
                                 setQuizzes(getQuizList());
                                 toast.success('Board byl smazán');
+                              }
+                              if (action === 'sync') {
+                                toast.promise(
+                                  manualSyncQuizToSupabase(quiz.id),
+                                  {
+                                    loading: 'Nahrávám do cloudu...',
+                                    success: (result) => {
+                                      if (result) {
+                                        setQuizzes(getQuizList());
+                                        return 'Board byl nahrán do cloudu';
+                                      }
+                                      throw new Error('Sync failed');
+                                    },
+                                    error: 'Nepodařilo se nahrát do cloudu',
+                                  }
+                                );
                               }
                             }}
                             onDragStart={(e) => {
