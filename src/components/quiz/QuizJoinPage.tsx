@@ -1258,13 +1258,13 @@ export function QuizJoinPage() {
       return (
         <div 
           className="flex-1 h-full rounded-full overflow-hidden"
-          style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+          style={{ backgroundColor: '#CBD5E1' }}
         >
           <div 
             className="h-full rounded-full transition-all duration-300 ease-out"
             style={{ 
               width: `${progressPercent}%`,
-              backgroundColor: '#7C3AED'
+              backgroundColor: '#475569'
             }}
           />
         </div>
@@ -1278,7 +1278,7 @@ export function QuizJoinPage() {
           <div
             className="rounded-full h-full"
             style={{ 
-              backgroundColor: '#7C3AED',
+              backgroundColor: '#475569',
               flex: currentSlideIndex + 1
             }}
           />
@@ -1290,7 +1290,7 @@ export function QuizJoinPage() {
               key={actualIndex}
               className="flex-1 rounded-full h-full"
               style={{ 
-                backgroundColor: 'rgba(255,255,255,0.2)'
+                backgroundColor: '#CBD5E1'
               }}
             />
           );
@@ -1304,14 +1304,14 @@ export function QuizJoinPage() {
   // ============================================
   
   return (
-    <div className="flex flex-col h-screen" style={{ backgroundColor: '#1a1a2e' }}>
+    <div className="flex flex-col h-screen" style={{ backgroundColor: '#F0F1F8' }}>
       {renderConnectionBanner()}
       
       {/* Progress bar header - height 40px on desktop only */}
       <div 
         className="hidden lg:flex items-center justify-center px-4" 
         style={{ 
-          backgroundColor: '#1a1a2e',
+          backgroundColor: '#F0F1F8',
           height: 40,
         }}
       >
@@ -1336,7 +1336,7 @@ export function QuizJoinPage() {
               <button
                 onClick={goToPrevSlide}
                 disabled={currentSlideIndex === 0}
-                className={`w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white/80 transition-all duration-300 ease-out ${currentSlideIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:h-24'}`}
+                className={`w-12 h-12 rounded-full bg-[#CBD5E1] flex items-center justify-center text-slate-600 transition-all duration-300 ease-out ${currentSlideIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:h-24'}`}
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
@@ -1352,9 +1352,8 @@ export function QuizJoinPage() {
               overflowY: isMobile ? 'auto' : 'hidden',
               overflowX: 'hidden',
               WebkitOverflowScrolling: 'touch',
-              // Padding - top for nav (smaller if locked mode), sides for shadow - reduced
-              padding: isMobile ? (canNavigate ? '75px 4px 4px 4px' : '50px 4px 4px 4px') : 8,
-              backgroundColor: '#1a1a2e',
+              // Padding - top for nav (smaller if locked mode), sides for shadow
+              padding: isMobile ? (canNavigate ? '75px 8px 8px 8px' : '50px 8px 8px 8px') : 16,
             }}
           >
             {/* Mobile: Fixed top navigation */}

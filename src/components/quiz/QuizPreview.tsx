@@ -1407,8 +1407,8 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
   
   const score = calculateQuizScore(responses, quiz.slides);
   
-  // Outer background color (area around slide) - dark mode
-  const bgColor = '#1a1a2e';
+  // Outer background color (area around slide)
+  const bgColor = '#F0F1F8';
   
   // Slide background color from current slide settings
   const slideBgColor = (currentSlide as any)?.slideBackground?.color || '#ffffff';
@@ -1598,14 +1598,14 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
             className="h-full transition-all duration-300"
             style={{ 
               width: `${progressPercent}%`,
-              backgroundColor: '#7C3AED'
+              backgroundColor: '#475569'
             }}
           />
           {/* Remaining part */}
           <div
             className="h-full flex-1"
             style={{ 
-              backgroundColor: 'rgba(255,255,255,0.2)'
+              backgroundColor: '#CBD5E1'
             }}
           />
         </div>
@@ -1620,7 +1620,7 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
             className="rounded-full cursor-pointer hover:opacity-80"
             style={{ 
               height: '8px',
-              backgroundColor: '#7C3AED',
+              backgroundColor: '#475569',
               flex: currentSlideIndex + 1
             }}
             onClick={() => {
@@ -1649,7 +1649,7 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
               className="flex-1 rounded-full cursor-pointer hover:opacity-80"
               style={{ 
                 height: '8px',
-                backgroundColor: 'rgba(255,255,255,0.2)'
+                backgroundColor: '#CBD5E1'
               }}
             />
           );
@@ -2057,7 +2057,7 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
           {chapters.length > 0 && (
             <button
               onClick={() => setShowChapterMenu(!showChapterMenu)}
-              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-white/20 text-white/80"
+              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-[#CBD5E1] text-slate-600"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -2067,7 +2067,7 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
         <button
           onClick={goToPrevSlide}
           disabled={currentSlideIndex === 0 || !quiz.settings.allowBack}
-          className={`w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 bg-white/20 text-white/80 ${
+          className={`w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 bg-[#CBD5E1] text-slate-600 ${
             currentSlideIndex === 0 || !quiz.settings.allowBack ? 'opacity-30 cursor-not-allowed' : ''
           }`}
         >
@@ -2119,7 +2119,6 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
         <div className="flex-1 flex items-stretch overflow-hidden" style={{ 
           minHeight: 0, 
           paddingBottom: isMobile ? 8 : 5,
-          backgroundColor: bgColor,
         }}>
           {/* Desktop: Left arrow - same width as right arrow for symmetry */}
           <div 
@@ -2129,7 +2128,7 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
             <button
               onClick={goToPrevSlide}
               disabled={currentSlideIndex === 0 || !quiz.settings.allowBack}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ease-out bg-white/20 text-white/80 ${
+              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ease-out bg-[#CBD5E1] text-slate-600 ${
                 currentSlideIndex === 0 || !quiz.settings.allowBack ? 'opacity-30 cursor-not-allowed' : 'hover:h-28'
               }`}
             >
@@ -2145,10 +2144,8 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
               overflowY: isMobile ? 'auto' : 'hidden',
               overflowX: 'hidden',
               WebkitOverflowScrolling: 'touch',
-              // Padding for shadow visibility - reduced for smaller margins
-              padding: isMobile ? 4 : 8,
-              // Dark background around the slide
-              backgroundColor: bgColor,
+              // Padding for shadow visibility
+              padding: isMobile ? 8 : 16,
             }}
           >
             <div 

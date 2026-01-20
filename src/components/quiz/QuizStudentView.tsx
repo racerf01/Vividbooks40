@@ -777,7 +777,7 @@ export function QuizStudentView() {
             className="flex-1 rounded-full"
             style={{ 
               height: '8px',
-              backgroundColor: 'rgba(255,255,255,0.2)'
+              backgroundColor: '#CBD5E1'
             }}
           />
         ))}
@@ -936,14 +936,14 @@ export function QuizStudentView() {
   }
 
   return (
-    <div className="flex flex-col h-screen" style={{ backgroundColor: '#1a1a2e' }}>
+    <div className="flex flex-col h-screen" style={{ backgroundColor: '#F0F1F8' }}>
       {renderConnectionBanner()}
       
       {/* Desktop: Top bar - height 40px to match margin requirement */}
       <div 
         className="hidden lg:flex items-end justify-center px-6" 
         style={{ 
-          backgroundColor: '#1a1a2e', 
+          backgroundColor: '#F0F1F8', 
           height: 40,
           paddingBottom: 8,
         }}
@@ -955,11 +955,11 @@ export function QuizStudentView() {
       </div>
       
       {/* Mobile: Top navigation */}
-      <div className="flex lg:hidden items-center gap-3 px-4 py-4" style={{ backgroundColor: '#1a1a2e' }}>
+      <div className="flex lg:hidden items-center gap-3 px-4 py-4" style={{ backgroundColor: '#F0F1F8' }}>
         <button
           onClick={goToPrevSlide}
           disabled={currentSlideIndex === 0}
-          className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${currentSlideIndex === 0 ? 'opacity-30 cursor-not-allowed' : ''} bg-white/20 text-white/80`}
+          className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${currentSlideIndex === 0 ? 'opacity-30 cursor-not-allowed' : ''} bg-[#CBD5E1] text-slate-600`}
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -981,18 +981,18 @@ export function QuizStudentView() {
       <div 
         className="flex-1 flex flex-col overflow-hidden" 
         style={{ 
-          backgroundColor: '#1a1a2e',
+          backgroundColor: '#F0F1F8',
           minHeight: 0,
         }}
       >
         {/* Content with arrows - bottom padding */}
-        <div className="flex-1 flex items-stretch overflow-hidden" style={{ minHeight: 0, paddingBottom: isMobile ? 8 : 5, backgroundColor: '#1a1a2e' }}>
+        <div className="flex-1 flex items-stretch overflow-hidden" style={{ minHeight: 0, paddingBottom: isMobile ? 8 : 5 }}>
           {/* Desktop: Left arrow */}
           <div className="hidden lg:flex flex-shrink-0 items-center justify-center" style={{ width: 65 }}>
             <button
               onClick={goToPrevSlide}
               disabled={currentSlideIndex === 0}
-              className={`w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white/80 transition-all duration-300 ease-out ${currentSlideIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:h-24'}`}
+              className={`w-12 h-12 rounded-full bg-[#CBD5E1] flex items-center justify-center text-slate-600 transition-all duration-300 ease-out ${currentSlideIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:h-24'}`}
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -1006,9 +1006,8 @@ export function QuizStudentView() {
               overflowY: isMobile ? 'auto' : 'hidden',
               overflowX: 'hidden',
               WebkitOverflowScrolling: 'touch',
-              // Padding for shadow visibility - reduced
-              padding: isMobile ? 4 : 8,
-              backgroundColor: '#1a1a2e',
+              // Padding for shadow visibility
+              padding: isMobile ? 8 : 16,
             }}
           >
             <div 
