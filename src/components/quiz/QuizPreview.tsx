@@ -1421,6 +1421,64 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
     setShowResult(false);
   }, [currentSlideIndex]);
   
+  // Preload adjacent slides (previous and next)
+  useEffect(() => {
+    const preloadSlideImages = (slide: QuizSlide | undefined) => {
+      if (!slide) return;
+      
+      // Collect all image URLs from the slide
+      const imageUrls: string[] = [];
+      
+      // Check for media on activity slides
+      if ((slide as any).media?.url && (slide as any).media?.type === 'image') {
+        imageUrls.push((slide as any).media.url);
+      }
+      
+      // Check for block-based layouts (info slides)
+      if (slide.type === 'info') {
+        const infoSlide = slide as InfoSlide;
+        if (infoSlide.layout?.blocks) {
+          infoSlide.layout.blocks.forEach(block => {
+            if (block.type === 'image' && block.content) {
+              imageUrls.push(block.content);
+              // Also preload gallery images
+              if (block.gallery) {
+                block.gallery.forEach(url => imageUrls.push(url));
+              }
+            }
+          });
+        }
+        // Legacy format
+        if (infoSlide.imageUrl) {
+          imageUrls.push(infoSlide.imageUrl);
+        }
+      }
+      
+      // Check for slide background image
+      if ((slide as any).slideBackground?.type === 'image' && (slide as any).slideBackground?.imageUrl) {
+        imageUrls.push((slide as any).slideBackground.imageUrl);
+      }
+      
+      // Preload each image
+      imageUrls.forEach(url => {
+        if (url && url.startsWith('http')) {
+          const img = new Image();
+          img.src = url;
+        }
+      });
+    };
+    
+    // Preload previous slide
+    if (currentSlideIndex > 0) {
+      preloadSlideImages(quiz.slides[currentSlideIndex - 1]);
+    }
+    
+    // Preload next slide
+    if (currentSlideIndex < quiz.slides.length - 1) {
+      preloadSlideImages(quiz.slides[currentSlideIndex + 1]);
+    }
+  }, [currentSlideIndex, quiz.slides]);
+  
   // Load comments for current slide (public mode)
   useEffect(() => {
     if (isPublicMode && boardId && currentSlide) {
