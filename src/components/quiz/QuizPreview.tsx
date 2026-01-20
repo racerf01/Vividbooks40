@@ -2048,7 +2048,7 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
         )} */}
       
         {/* Mobile: Top navigation with arrows and progress bar */}
-        <div className="flex lg:hidden items-center gap-3 px-4 py-4" style={{ backgroundColor: slideBgColor }}>
+        <div className="flex lg:hidden items-center gap-3 px-4 py-4" style={{ backgroundColor: bgColor }}>
           {/* Menu button for chapters */}
           {chapters.length > 0 && (
             <button
@@ -2096,9 +2096,8 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
       <div 
         className="flex-1 flex flex-col overflow-hidden" 
         style={{ 
-          // On mobile, use slide's background color to fill entire screen
-          // On desktop, use the light gray outer background
-          backgroundColor: isMobile ? slideBgColor : bgColor,
+          // Use dark background color for the outer area
+          backgroundColor: bgColor,
           minHeight: 0,
         }}
       >
@@ -2115,8 +2114,8 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
         {/* Content with arrows - with bottom padding */}
         <div className="flex-1 flex items-stretch overflow-hidden" style={{ 
           minHeight: 0, 
-          paddingBottom: isMobile ? 16 : 5,
-          backgroundColor: isMobile ? slideBgColor : undefined,
+          paddingBottom: isMobile ? 8 : 5,
+          backgroundColor: bgColor,
         }}>
           {/* Desktop: Left arrow - same width as right arrow for symmetry */}
           <div 
@@ -2142,11 +2141,10 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
               overflowY: isMobile ? 'auto' : 'hidden',
               overflowX: 'hidden',
               WebkitOverflowScrolling: 'touch',
-              // Padding for shadow visibility - reduced by 50% for smaller margins
-              padding: 8,
-              // On mobile, the scrollable area should have the slide's background color
-              // to prevent white gaps when content is smaller than viewport
-              backgroundColor: isMobile ? slideBgColor : undefined,
+              // Padding for shadow visibility - reduced for smaller margins
+              padding: isMobile ? 4 : 8,
+              // Dark background around the slide
+              backgroundColor: bgColor,
             }}
           >
             <div 

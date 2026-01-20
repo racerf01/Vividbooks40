@@ -985,8 +985,8 @@ export function QuizStudentView() {
           minHeight: 0,
         }}
       >
-        {/* Content with arrows - bottom padding 5px */}
-        <div className="flex-1 flex items-stretch overflow-hidden" style={{ minHeight: 0, paddingBottom: isMobile ? 16 : 5 }}>
+        {/* Content with arrows - bottom padding */}
+        <div className="flex-1 flex items-stretch overflow-hidden" style={{ minHeight: 0, paddingBottom: isMobile ? 8 : 5, backgroundColor: '#1a1a2e' }}>
           {/* Desktop: Left arrow */}
           <div className="hidden lg:flex flex-shrink-0 items-center justify-center" style={{ width: 65 }}>
             <button
@@ -1006,8 +1006,9 @@ export function QuizStudentView() {
               overflowY: isMobile ? 'auto' : 'hidden',
               overflowX: 'hidden',
               WebkitOverflowScrolling: 'touch',
-              // Padding for shadow visibility - reduced by 50%
-              padding: 8,
+              // Padding for shadow visibility - reduced
+              padding: isMobile ? 4 : 8,
+              backgroundColor: '#1a1a2e',
             }}
           >
             <div 

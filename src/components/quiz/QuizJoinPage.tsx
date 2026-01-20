@@ -1352,8 +1352,9 @@ export function QuizJoinPage() {
               overflowY: isMobile ? 'auto' : 'hidden',
               overflowX: 'hidden',
               WebkitOverflowScrolling: 'touch',
-              // Padding - top for nav (smaller if locked mode), sides for shadow - reduced by 50%
-              padding: isMobile ? (canNavigate ? '75px 8px 8px 8px' : '50px 8px 8px 8px') : 8,
+              // Padding - top for nav (smaller if locked mode), sides for shadow - reduced
+              padding: isMobile ? (canNavigate ? '75px 4px 4px 4px' : '50px 4px 4px 4px') : 8,
+              backgroundColor: '#1a1a2e',
             }}
           >
             {/* Mobile: Fixed top navigation */}
