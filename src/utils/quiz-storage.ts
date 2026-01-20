@@ -1135,3 +1135,129 @@ export async function migrateToSupabase(): Promise<{ success: boolean; migrated:
   }
 }
 
+/**
+ * Clean up local duplicates and force upload remaining local items to Supabase
+ * This resolves sync issues where local items have different IDs than Supabase items
+ */
+export async function cleanupDuplicatesAndForceUpload(): Promise<{ cleaned: number; uploaded: number; errors: string[] }> {
+  const result = { cleaned: 0, uploaded: 0, errors: [] as string[] };
+  
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      result.errors.push('Uživatel není přihlášen');
+      return result;
+    }
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) {
+      result.errors.push('Chybí přístupový token');
+      return result;
+    }
+
+    console.log('[QuizStorage] Starting cleanup and force upload...');
+
+    // 1. Fetch all Supabase quizzes
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/teacher_boards?teacher_id=eq.${userId}&select=id,title`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${accessToken}`,
+        }
+      }
+    );
+
+    if (!response.ok) {
+      result.errors.push('Nepodařilo se načíst data ze serveru');
+      return result;
+    }
+
+    const supabaseQuizzes = await response.json();
+    const supabaseIdSet = new Set(supabaseQuizzes.map((q: any) => q.id));
+    const supabaseBaseIds = new Set(supabaseQuizzes.map((q: any) => getBaseQuizId(q.id)));
+    const supabaseTitles = new Map(supabaseQuizzes.map((q: any) => [q.id, q.title]));
+
+    console.log('[QuizStorage] Supabase has', supabaseQuizzes.length, 'quizzes');
+
+    // 2. Get all local quizzes
+    const localQuizzes = getRawQuizList();
+    console.log('[QuizStorage] Local has', localQuizzes.length, 'quizzes');
+
+    // 3. Find and clean duplicates
+    const toClean: string[] = [];
+    const toUpload: QuizListItem[] = [];
+
+    for (const localQuiz of localQuizzes) {
+      // Check if exact ID exists in Supabase
+      if (supabaseIdSet.has(localQuiz.id)) {
+        // Already synced, skip
+        supabaseQuizIds.add(localQuiz.id);
+        continue;
+      }
+
+      // Check if base ID exists (local without suffix, Supabase with suffix)
+      const baseId = getBaseQuizId(localQuiz.id);
+      
+      // Find matching Supabase quiz
+      const matchingSupabaseId = supabaseQuizzes.find((sq: any) => {
+        // Match: local "board-123" should match Supabase "board-123-7b7de157"
+        return getBaseQuizId(sq.id) === baseId || sq.id === baseId;
+      })?.id;
+
+      if (matchingSupabaseId) {
+        // Duplicate found - clean local
+        console.log('[QuizStorage] Cleaning duplicate local:', localQuiz.id, '-> matches Supabase:', matchingSupabaseId);
+        toClean.push(localQuiz.id);
+        supabaseQuizIds.add(matchingSupabaseId);
+      } else {
+        // Truly local-only, needs upload
+        toUpload.push(localQuiz);
+      }
+    }
+
+    // 4. Clean duplicates
+    if (toClean.length > 0) {
+      console.log('[QuizStorage] Cleaning', toClean.length, 'local duplicates');
+      for (const id of toClean) {
+        localStorage.removeItem(`${QUIZ_PREFIX}${id}`);
+        result.cleaned++;
+      }
+      
+      // Update list
+      const cleanedList = localQuizzes.filter(q => !toClean.includes(q.id));
+      localStorage.setItem(QUIZZES_KEY, JSON.stringify(cleanedList));
+    }
+
+    // 5. Upload remaining local items
+    if (toUpload.length > 0) {
+      console.log('[QuizStorage] Uploading', toUpload.length, 'local quizzes');
+      for (const quizItem of toUpload) {
+        const quiz = getQuiz(quizItem.id);
+        if (!quiz) continue;
+
+        try {
+          await syncQuizToSupabase(quiz, quizItem);
+          result.uploaded++;
+        } catch (err: any) {
+          console.warn('[QuizStorage] Failed to upload:', quizItem.id, err);
+          result.errors.push(`${quizItem.title || quizItem.id}: ${err.message}`);
+        }
+      }
+    }
+
+    // 6. Save updated Supabase IDs
+    localStorage.setItem(SUPABASE_IDS_KEY, JSON.stringify([...supabaseQuizIds]));
+    notifyQuizChange();
+
+    console.log('[QuizStorage] Cleanup complete:', result);
+    return result;
+
+  } catch (error: any) {
+    console.error('[QuizStorage] Cleanup error:', error);
+    result.errors.push(error.message);
+    return result;
+  }
+}
+

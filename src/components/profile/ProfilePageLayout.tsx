@@ -50,7 +50,7 @@ import { supabase } from '../../utils/supabase/client';
 import { SchoolPairing } from './SchoolPairing';
 import { ColleaguesList } from './ColleaguesList';
 import * as storage from '../../utils/profile-storage';
-import { syncFromSupabase as syncQuizzes } from '../../utils/quiz-storage';
+import { syncFromSupabase as syncQuizzes, cleanupDuplicatesAndForceUpload } from '../../utils/quiz-storage';
 import { syncFromSupabase as syncFolders } from '../../utils/folder-storage';
 import { syncLinksFromSupabase } from '../../utils/link-storage';
 import { syncFromSupabase as syncDocuments } from '../../utils/document-storage';
@@ -94,6 +94,15 @@ export function ProfilePageLayout({ theme, toggleTheme }: ProfilePageLayoutProps
     console.log('[ProfilePageLayout] Force sync started');
     
     try {
+      // 1. First clean up duplicates and force upload local items
+      const cleanupResult = await cleanupDuplicatesAndForceUpload();
+      console.log('[ProfilePageLayout] Cleanup result:', cleanupResult);
+      
+      if (cleanupResult.cleaned > 0 || cleanupResult.uploaded > 0) {
+        toast.success(`Vyčištěno ${cleanupResult.cleaned} duplicit, nahráno ${cleanupResult.uploaded} položek`, { duration: 3000 });
+      }
+      
+      // 2. Then sync from Supabase to get latest data
       const results = await Promise.allSettled([
         syncQuizzes(),
         syncFolders(),
