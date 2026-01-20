@@ -46,6 +46,26 @@ async function getCurrentUserId(): Promise<string | null> {
   return user?.id || null;
 }
 
+/**
+ * Extract base ID from a quiz ID (removes user suffix if present)
+ * e.g. "board-123-7b7de157" -> "board-123"
+ */
+function getBaseQuizId(id: string): string {
+  // Match pattern: ends with -XXXXXXXX (8 hex chars, typical user ID prefix)
+  const match = id.match(/^(.+)-[a-f0-9]{8}$/i);
+  return match ? match[1] : id;
+}
+
+/**
+ * Check if two quiz IDs represent the same quiz (with or without user suffix)
+ */
+function isSameQuiz(id1: string, id2: string): boolean {
+  if (id1 === id2) return true;
+  const base1 = getBaseQuizId(id1);
+  const base2 = getBaseQuizId(id2);
+  return base1 === base2 || base1 === id2 || id1 === base2;
+}
+
 // Notify listeners of changes
 function notifyQuizChange() {
   window.dispatchEvent(new Event('quizStorageChange'));
@@ -282,11 +302,53 @@ async function syncQuizToSupabase(quiz: Quiz, listItem: QuizListItem): Promise<v
         
         // Handle duplicate key error (conflict)
         if (errorText.includes('duplicate key') || errorText.includes('unique constraint')) {
-           // Record exists with this ID but belongs to different user
-           // Generate new ID and retry
+           // Try with user suffix first
            const newId = `${quiz.id}-${userId.substring(0, 8)}`;
-           console.log('[QuizStorage] ⚠️ ID conflict, creating with new ID:', newId);
+           console.log('[QuizStorage] ⚠️ ID conflict, trying UPDATE with suffixed ID:', newId);
            
+           // First try to UPDATE the existing record with suffixed ID (it might already exist)
+           const updateResponse = await fetch(
+             `${SUPABASE_URL}/rest/v1/teacher_boards?id=eq.${newId}&teacher_id=eq.${userId}`,
+             {
+               method: 'PATCH',
+               headers: {
+                 'apikey': SUPABASE_KEY,
+                 'Authorization': `Bearer ${accessToken}`,
+                 'Content-Type': 'application/json',
+                 'Prefer': 'return=representation',
+               },
+               body: JSON.stringify({ ...recordData, id: newId })
+             }
+           );
+           
+           if (updateResponse.ok) {
+             const updateResult = await updateResponse.json();
+             if (updateResult && updateResult.length > 0) {
+               // Update succeeded - sync local storage to use this ID
+               const localQuiz = getQuiz(quiz.id);
+               if (localQuiz) {
+                 localQuiz.id = newId;
+                 localStorage.setItem(`${QUIZ_PREFIX}${newId}`, JSON.stringify(localQuiz));
+                 localStorage.removeItem(`${QUIZ_PREFIX}${quiz.id}`);
+               }
+               
+               // Update list
+               const list = getRawQuizList();
+               const idx = list.findIndex(q => q.id === quiz.id);
+               if (idx >= 0) {
+                 list[idx].id = newId;
+                 localStorage.setItem(QUIZZES_KEY, JSON.stringify(list));
+               }
+               
+               supabaseQuizIds.add(newId);
+               localStorage.setItem(SUPABASE_IDS_KEY, JSON.stringify([...supabaseQuizIds]));
+               console.log('[QuizStorage] ✅ Successfully updated existing record with ID:', newId);
+               notifyQuizChange();
+               return;
+             }
+           }
+           
+           // If UPDATE didn't match any rows, try INSERT with new ID
            const newRecordData = { ...recordData, id: newId };
            const retryResponse = await fetch(
              `${SUPABASE_URL}/rest/v1/teacher_boards`,
@@ -325,7 +387,14 @@ async function syncQuizToSupabase(quiz: Quiz, listItem: QuizListItem): Promise<v
              notifyQuizChange();
              return;
            } else {
-             console.warn('[QuizStorage] ❌ Retry insert failed:', await retryResponse.text());
+             // Both UPDATE and INSERT failed - the record exists but we can't update it
+             // This means it's a true duplicate, just mark as synced and move on
+             console.warn('[QuizStorage] ⚠️ Record exists in Supabase, marking as synced:', newId);
+             supabaseQuizIds.add(quiz.id);
+             supabaseQuizIds.add(newId);
+             localStorage.setItem(SUPABASE_IDS_KEY, JSON.stringify([...supabaseQuizIds]));
+             notifyQuizChange();
+             return;
            }
         } else if (errorText.includes('does not exist') || insertResponse.status === 404) {
           tableKnownMissing = true;
@@ -898,7 +967,25 @@ export async function syncFromSupabase(passedUserId?: string, accessToken?: stri
 
     // Merge: keep local quizzes that aren't in Supabase yet (and aren't deleted)
     const supabaseIds = new Set(supabaseQuizzes.map(q => q.id));
-    const localOnly = localQuizzes.filter(q => !supabaseIds.has(q.id) && !deletedQuizIds.has(q.id));
+    const supabaseBaseIds = new Set(supabaseQuizzes.map(q => getBaseQuizId(q.id)));
+    
+    // Filter local quizzes - exclude if:
+    // 1. Exact ID match in Supabase
+    // 2. Base ID match (local "board-123" matches Supabase "board-123-7b7de157")
+    // 3. Deleted locally
+    const localOnly = localQuizzes.filter(q => {
+      if (supabaseIds.has(q.id)) return false;
+      if (deletedQuizIds.has(q.id)) return false;
+      // Check if a version with user suffix exists in Supabase
+      const baseId = getBaseQuizId(q.id);
+      if (supabaseBaseIds.has(baseId)) {
+        // Found matching board in Supabase with suffix - clean up local version
+        console.log('[QuizStorage] Local quiz matches Supabase version with suffix, removing local:', q.id);
+        localStorage.removeItem(`${QUIZ_PREFIX}${q.id}`);
+        return false;
+      }
+      return true;
+    });
     
     // Combined list: Supabase first, then local-only
     const mergedQuizzes = [...supabaseQuizzes, ...localOnly];
