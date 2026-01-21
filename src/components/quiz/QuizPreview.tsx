@@ -2109,23 +2109,23 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
           </div>
         )} */}
       
-        {/* Mobile: Top navigation with arrows and progress bar */}
-        <div className="flex lg:hidden items-center gap-3 px-4 py-4" style={{ backgroundColor: bgColor }}>
-          {/* Comment button for public mode - left side - LARGE */}
+        {/* Mobile: Top navigation - EXACT copy from QuizStudentView */}
+        <div className="flex lg:hidden items-center gap-3 px-4 py-4" style={{ backgroundColor: '#F0F1F8' }}>
+          {/* Comment button for public mode - same style as other buttons */}
           {isPublicMode && (
             <button
               onClick={() => setShowCommentsPanel(!showCommentsPanel)}
-              className={`w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 shadow-md ${
+              className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
                 showCommentsPanel 
-                  ? 'bg-indigo-600 text-white' 
-                  : 'bg-white text-indigo-600 border-2 border-indigo-200'
+                  ? 'bg-indigo-500 text-white' 
+                  : 'bg-[#CBD5E1] text-slate-600'
               }`}
             >
-              <MessageSquare className="w-7 h-7" />
+              <MessageSquare className="w-5 h-5" />
             </button>
           )}
           
-          {/* Menu button for chapters */}
+          {/* Menu button for chapters - only when NOT in public mode */}
           {chapters.length > 0 && !isPublicMode && (
             <button
               onClick={() => setShowChapterMenu(!showChapterMenu)}
@@ -2135,45 +2135,41 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
             </button>
           )}
       
-          {/* Left arrow */}
-        <button
-          onClick={goToPrevSlide}
-          disabled={currentSlideIndex === 0 || !quiz.settings.allowBack}
-          className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 bg-[#CBD5E1] text-slate-600 ${
-            currentSlideIndex === 0 || !quiz.settings.allowBack ? 'opacity-30 cursor-not-allowed' : ''
-          }`}
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
+          {/* Left arrow - exact copy from QuizStudentView */}
+          <button
+            onClick={goToPrevSlide}
+            disabled={currentSlideIndex === 0 || !quiz.settings.allowBack}
+            className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${currentSlideIndex === 0 || !quiz.settings.allowBack ? 'opacity-30 cursor-not-allowed' : ''} bg-[#CBD5E1] text-slate-600`}
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
         
-        {/* Progress bar */}
-        <div className="flex-1 flex items-center gap-1.5">
-          {renderProgressBar()}
+          {/* Progress bar */}
+          <div className="flex-1 flex items-center gap-1.5">
+            {renderProgressBar()}
+          </div>
+        
+          {/* Right arrow - exact copy from QuizStudentView */}
+          <button
+            onClick={() => {
+              if (!isLive || hasAnswered || currentSlide?.type !== 'activity') {
+                goToNextSlide();
+              } else if (selectedOption || textAnswer.trim()) {
+                submitAnswer();
+              }
+            }}
+            className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-white"
+            style={{ backgroundColor: '#7C3AED' }}
+          >
+            <ArrowRight className="w-5 h-5" />
+          </button>
         </div>
-        
-        {/* Right arrow */}
-        <button
-          onClick={() => {
-            // In preview mode (not live), allow free navigation
-            if (!isLive || hasAnswered || currentSlide?.type !== 'activity') {
-              goToNextSlide();
-            } else if (selectedOption || textAnswer.trim()) {
-              submitAnswer();
-            }
-          }}
-          className="w-12 h-12 rounded-full flex items-center justify-center text-white flex-shrink-0"
-          style={{ backgroundColor: '#7C3AED' }}
-        >
-          <ArrowRight className="w-5 h-5" />
-        </button>
-      </div>
       
-      {/* Main content area with arrows */}
+      {/* Main content area with arrows - exact copy from QuizStudentView */}
       <div 
         className="flex-1 flex flex-col overflow-hidden" 
         style={{ 
-          // Use dark background color for the outer area
-          backgroundColor: bgColor,
+          backgroundColor: '#F0F1F8',
           minHeight: 0,
         }}
       >
@@ -2220,24 +2216,18 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
               padding: isMobile ? 8 : 16,
             }}
           >
+            {/* Slide card - exact copy from QuizStudentView */}
             <div 
-              className={`w-full rounded-3xl ${
-                currentSlide?.type !== 'info' ? 'max-w-5xl mx-auto' : ''
-              } ${
-                currentSlideIndex > prevSlideIndex && isAnimating ? 'animate-slide-in' : ''
-              } ${
-                currentSlideIndex < prevSlideIndex && isAnimating ? 'animate-slide-in-left' : ''
-              }`}
-              style={{ 
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: isMobile ? 'visible' : 'hidden',
-                // On mobile, use auto height so content can scroll
-                // On desktop, use 100% to fill container
+              className={`
+                w-full rounded-3xl shadow-md overflow-hidden flex flex-col
+                ${currentSlide?.type !== 'info' ? 'max-w-5xl mx-auto' : ''}
+                ${currentSlideIndex > prevSlideIndex && isAnimating ? 'animate-slide-in' : ''}
+                ${currentSlideIndex < prevSlideIndex && isAnimating ? 'animate-slide-in-left' : ''}
+              `}
+              style={{
+                // Fill available space - on mobile, use minHeight to ensure background extends
                 height: isMobile ? 'auto' : '100%',
                 minHeight: isMobile ? 'calc(100vh - 140px)' : undefined,
-                // Subtle shadow with small spread
-                boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.08)',
                 // Dynamic background and text color based on slide settings
                 backgroundColor: slideBgColor,
                 color: slideTextColor,
@@ -2353,93 +2343,86 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
         </div>
       )}
       
-      {/* Mobile Comments Panel - overlay */}
+      {/* Mobile Comments Panel - simple overlay matching student view style */}
       {showCommentsPanel && isPublicMode && isMobile && (
         <div className="lg:hidden fixed inset-0 z-50 flex flex-col bg-white">
-          {/* Header - larger */}
-          <div className="flex items-center gap-4 p-5 border-b border-slate-100 flex-shrink-0 bg-indigo-50">
+          {/* Header - simple like chapter menu */}
+          <div className="flex items-center gap-3 p-4 border-b border-slate-100 flex-shrink-0">
             <button
               onClick={() => setShowCommentsPanel(false)}
-              className="w-12 h-12 rounded-full flex items-center justify-center bg-white text-slate-600 shadow-sm"
+              className="w-9 h-9 rounded-full flex items-center justify-center bg-slate-100 text-slate-500"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
-            <div>
-              <span className="font-bold text-slate-800 text-lg">Komentáře</span>
-              <p className="text-sm text-slate-500">Slide {currentSlideIndex + 1} z {quiz.slides.length}</p>
-            </div>
+            <span className="font-semibold text-slate-700 text-base">Komentáře ({currentSlideIndex + 1}/{quiz.slides.length})</span>
           </div>
           
-          {/* Comments list - larger text */}
-          <div className="flex-1 overflow-y-auto p-5">
+          {/* Comments list */}
+          <div className="flex-1 overflow-y-auto p-4">
             {slideComments.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
-                <MessageSquare className="w-16 h-16 mx-auto mb-4 opacity-40" />
-                <p className="text-lg font-medium">Zatím žádné komentáře</p>
-                <p className="text-base mt-2">Buďte první, kdo okomentuje tento slide!</p>
+              <div className="text-center py-8 text-slate-400">
+                <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                <p className="text-base">Zatím žádné komentáře</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {slideComments.map((comment) => (
-                  <div key={comment.id} className="p-4 bg-slate-50 rounded-2xl">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                        <User className="w-4 h-4 text-indigo-600" />
-                      </div>
-                      <span className="text-base font-semibold text-slate-700">
+                  <div key={comment.id} className="p-3 bg-slate-50 rounded-xl">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium text-slate-600">
                         {comment.author_name || 'Anonym'}
                       </span>
-                      <span className="text-sm text-slate-400 ml-auto">
+                      <span className="text-xs text-slate-400">
                         {new Date(comment.created_at).toLocaleDateString('cs-CZ')}
                       </span>
                     </div>
-                    <p className="text-base text-slate-700 leading-relaxed">{comment.content}</p>
+                    <p className="text-sm text-slate-700">{comment.content}</p>
                   </div>
                 ))}
               </div>
             )}
           </div>
           
-          {/* Add comment form - larger inputs */}
-          <div className="p-5 border-t border-slate-100 flex-shrink-0 bg-white safe-area-inset-bottom">
+          {/* Add comment form */}
+          <div className="p-4 border-t border-slate-100 flex-shrink-0 bg-white">
             {commentSuccess ? (
-              <div className="text-center py-6 text-green-600">
-                <CheckCircle className="w-12 h-12 mx-auto mb-2" />
-                <p className="text-lg font-semibold">Komentář odeslán!</p>
+              <div className="text-center py-4 text-green-600">
+                <CheckCircle className="w-8 h-8 mx-auto mb-1" />
+                <p className="text-sm font-medium">Komentář odeslán!</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <input
                   type="text"
                   value={commentAuthorName}
                   onChange={(e) => setCommentAuthorName(e.target.value)}
                   placeholder="Vaše jméno (volitelné)"
-                  className="w-full px-4 py-3.5 text-base border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <textarea
                   value={commentContent}
                   onChange={(e) => setCommentContent(e.target.value)}
                   placeholder="Napište komentář..."
-                  rows={4}
-                  className="w-full px-4 py-3.5 text-base border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                  rows={3}
+                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                 />
                 <button
                   onClick={submitComment}
                   disabled={!commentContent.trim() || submittingComment}
-                  className={`w-full py-4 rounded-xl font-semibold text-lg flex items-center justify-center gap-3 ${
+                  className={`w-full py-3 rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${
                     commentContent.trim() && !submittingComment
-                      ? 'bg-indigo-600 text-white active:bg-indigo-700'
+                      ? 'bg-indigo-600 text-white'
                       : 'bg-slate-100 text-slate-400'
                   }`}
                 >
                   {submittingComment ? (
                     <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                       Odesílám...
                     </>
                   ) : (
                     <>
-                      <Send className="w-5 h-5" />
+                      <Send className="w-4 h-4" />
                       Odeslat komentář
                     </>
                   )}
