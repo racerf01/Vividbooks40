@@ -59,7 +59,8 @@ const SUBJECTS = [
   { id: 'fyzika', label: 'Fyzika' },
   { id: 'chemie', label: 'Chemie' },
   { id: 'prirodopis', label: 'Přírodopis' },
-  { id: 'matematika', label: 'Matematika' }
+  { id: 'matematika', label: 'Matematika' },
+  { id: 'dejepis', label: 'Dějepis' }
 ];
 
 const OTHER_CATEGORIES = [

@@ -22,7 +22,8 @@ export type ActivityType =
   | 'fill-blanks'      // Doplňování - drag and drop words into sentences
   | 'image-hotspots'   // Poznávačka - identify points on an image
   | 'connect-pairs'    // Spojovačka - connect matching pairs
-  | 'video-quiz';      // Otázky ve videu - questions at specific video timestamps
+  | 'video-quiz'       // Otázky ve videu - questions at specific video timestamps
+  | 'form';            // Formulář - custom form with various field types
 
 // =============================================
 // BOARD (NÁSTĚNKA) TYPES
@@ -454,12 +455,91 @@ export interface VotingActivitySlide extends BaseSlide {
 }
 
 /**
+ * Tool types available
+ */
+export type ToolType = 'calculator' | 'drawing' | 'graph' | 'timer' | 'random' | 'certificate';
+
+/**
+ * Source for certificate fields - can be manual or from a form field
+ */
+export interface CertificateFieldSource {
+  type: 'manual' | 'form-field' | 'auto';
+  value?: string;          // For manual input
+  slideId?: string;        // Reference to form slide
+  fieldId?: string;        // Reference to form field
+}
+
+/**
+ * Certificate column configuration
+ */
+export interface CertificateColumn {
+  title: string;
+  content: string;
+}
+
+/**
+ * Position for custom template overlays
+ */
+export interface CustomPosition {
+  top: string;
+  left: string;
+}
+
+/**
+ * Certificate tool configuration
+ */
+export interface CertificateConfig {
+  title: string;                          // Main title e.g. "CERTIFIKÁT"
+  subtitle?: string;                      // Optional subtitle e.g. "DVPP"
+  organizationName?: string;              // e.g. "VIVIDBOOKS"
+  nameSource: CertificateFieldSource;     // Source for participant name
+  dateOfBirthSource?: CertificateFieldSource; // Source for date of birth
+  issueDate?: CertificateFieldSource;     // Date of issue (can be auto = today)
+  columns: CertificateColumn[];           // Bottom columns (typically 3)
+  backgroundImage?: string;               // Custom background
+  signatureImage?: string;                // Signature image
+  logoImage?: string;                     // Logo image
+  // Custom PDF template
+  useCustomTemplate?: boolean;            // Whether to use custom PDF
+  customPdfUrl?: string;                  // URL to custom PDF/image template
+  customNamePosition?: CustomPosition;    // Position for name on custom template
+  customDatePosition?: CustomPosition;    // Position for date on custom template
+}
+
+/**
  * Tools slide - Interactive tools (calculator, drawing, etc.)
  */
 export interface ToolsSlide extends BaseSlide {
   type: 'tools';
-  toolType: 'calculator' | 'drawing' | 'graph' | 'timer' | 'random';
+  toolType: ToolType;
   config?: Record<string, unknown>;
+  // Certificate specific
+  certificateConfig?: CertificateConfig;
+}
+
+/**
+ * Create a certificate slide
+ */
+export function createCertificateSlide(order: number): ToolsSlide {
+  return {
+    id: `slide-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    type: 'tools',
+    toolType: 'certificate',
+    order,
+    certificateConfig: {
+      title: 'CERTIFIKÁT',
+      subtitle: '',
+      organizationName: '',
+      nameSource: { type: 'manual', value: '' },
+      dateOfBirthSource: { type: 'manual', value: '' },
+      issueDate: { type: 'auto' },
+      columns: [
+        { title: 'Popis programu', content: '' },
+        { title: 'Podpis', content: '' },
+        { title: 'Organizace', content: '' },
+      ],
+    },
+  };
 }
 
 // =============================================
@@ -594,6 +674,43 @@ export interface VideoQuizActivitySlide extends BaseSlide {
   mustAnswerToProgress: boolean; // If true, video pauses until question is answered
 }
 
+// =============================================
+// FORM (FORMULÁŘ) TYPES
+// =============================================
+
+/**
+ * Form field types
+ */
+export type FormFieldType = 
+  | 'short-text'   // Krátká odpověď - single line text input
+  | 'long-text'    // Dlouhá odpověď - multi-line textarea
+  | 'checkboxes'   // Checkboxy - multiple choice with checkboxes
+  | 'radio'        // Radio buttons - single choice
+  | 'dropdown';    // Rozbalovací seznam - dropdown select
+
+/**
+ * Single form field
+ */
+export interface FormField {
+  id: string;
+  type: FormFieldType;
+  label: string; // Question/label for the field
+  required: boolean; // Is this field required?
+  placeholder?: string; // Placeholder text for text inputs
+  options?: string[]; // Options for checkboxes, radio, dropdown
+}
+
+/**
+ * Form Activity (Formulář)
+ * Custom form with various field types
+ */
+export interface FormActivitySlide extends BaseSlide {
+  type: 'activity';
+  activityType: 'form';
+  instruction?: string; // Optional instruction at the top
+  fields: FormField[]; // Array of form fields
+}
+
 /**
  * Union type for all slide types
  */
@@ -609,6 +726,7 @@ export type QuizSlide =
   | ImageHotspotsActivitySlide
   | ConnectPairsActivitySlide
   | VideoQuizActivitySlide
+  | FormActivitySlide
   | ToolsSlide;
 
 /**
@@ -624,7 +742,8 @@ export type ActivitySlide =
   | FillBlanksActivitySlide
   | ImageHotspotsActivitySlide
   | ConnectPairsActivitySlide
-  | VideoQuizActivitySlide;
+  | VideoQuizActivitySlide
+  | FormActivitySlide;
 
 /**
  * Quiz/Test definition
@@ -1079,6 +1198,20 @@ export function createVideoQuizSlide(order: number): VideoQuizActivitySlide {
     questions: [],
     countAsMultiple: true,
     mustAnswerToProgress: true,
+  };
+}
+
+/**
+ * Create Form slide (Formulář)
+ */
+export function createFormSlide(order: number): FormActivitySlide {
+  return {
+    id: `slide-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    type: 'activity',
+    activityType: 'form',
+    order,
+    instruction: '',
+    fields: [],
   };
 }
 

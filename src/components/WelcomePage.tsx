@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { GraduationCap, Users, Settings, BarChart3, Key, ExternalLink, Loader2 } from 'lucide-react';
+import { GraduationCap, Users, Settings, BarChart3, Key, ExternalLink, Loader2, FileEdit } from 'lucide-react';
 import { supabase } from '../utils/supabase/client';
 
 interface WelcomePageProps {
@@ -46,7 +46,15 @@ export function WelcomePage({ theme, toggleTheme }: WelcomePageProps) {
     
     checkAuth();
   }, [navigate]);
+
   const links = [
+    {
+      title: 'Worksheet Editor PRO',
+      description: 'Nový pokročilý editor pracovních listů',
+      href: '/admin/worksheet-pro?offline=1',
+      icon: FileEdit,
+      gradient: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+    },
     {
       title: 'Login pro učitele',
       description: 'Přihlášení do učitelského rozhraní',

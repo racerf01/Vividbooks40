@@ -42,7 +42,8 @@ import {
   ImageHotspotsActivitySlide,
   VideoQuizActivitySlide,
   SlideResponse,
-  InfoSlide 
+  InfoSlide,
+  ToolsSlide,
 } from '../../types/quiz';
 import { BlockLayoutView } from './QuizPreview';
 import { BoardSlideView } from './slides/BoardSlideView';
@@ -51,6 +52,8 @@ import { ConnectPairsView } from './slides/ConnectPairsView';
 import { FillBlanksView } from './slides/FillBlanksView';
 import { ImageHotspotsView } from './slides/ImageHotspotsView';
 import { VideoQuizView } from './slides/VideoQuizView';
+import { FormView } from './slides/FormView';
+import { CertificateView } from './slides/CertificateView';
 import { useBoardPosts } from '../../hooks/useBoardPosts';
 import { useVoting } from '../../hooks/useVoting';
 import { checkMathAnswer } from '../../utils/math-compare';
@@ -222,6 +225,7 @@ export function QuizStudentView() {
   const [responses, setResponses] = useState<Record<string, SlideResponse>>({});
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [textAnswer, setTextAnswer] = useState('');
+  const [formAnswer, setFormAnswer] = useState<Record<string, string | string[]>>({});
   const [showMathKeyboard, setShowMathKeyboard] = useState(false);
   
   // Time tracking
@@ -566,6 +570,10 @@ export function QuizStudentView() {
       const correctAnswers = exampleSlide.finalAnswer ? [exampleSlide.finalAnswer] : [];
       isCorrect = checkMathAnswer(textAnswer, correctAnswers);
       answer = textAnswer;
+    } else if ((currentSlide as any).activityType === 'form') {
+      // Form answers are stored as JSON string
+      answer = JSON.stringify(formAnswer);
+      isCorrect = true; // Forms are not scored
     }
     
     // Calculate time spent on this slide in seconds
@@ -601,7 +609,7 @@ export function QuizStudentView() {
       console.error('Failed to save answer:', error);
       setConnectionError('Odpověď se možná neuložila');
     }
-  }, [quiz, shareId, studentId, currentSlideIndex, responses, selectedOption, textAnswer, slideStartTime, sessionStartTime]);
+  }, [quiz, shareId, studentId, currentSlideIndex, responses, selectedOption, textAnswer, formAnswer, slideStartTime, sessionStartTime]);
 
   // ============================================
   // NAVIGATION
@@ -675,6 +683,45 @@ export function QuizStudentView() {
   const currentSlide = quiz && quiz.slides ? quiz.slides[currentSlideIndex] : undefined;
   const currentResponse = currentSlide && responses ? responses[currentSlide.id] : undefined;
   const hasAnswered = !!currentResponse;
+
+  // Helper to collect form responses for certificate
+  const collectFormResponses = useCallback((): Record<string, Record<string, string | string[]>> => {
+    const formResponses: Record<string, Record<string, string | string[]>> = {};
+    
+    if (quiz) {
+      quiz.slides.forEach(slide => {
+        if (slide.type === 'activity' && (slide as any).activityType === 'form') {
+          const response = responses[slide.id];
+          // Try to parse saved response
+          if (response?.answer && typeof response.answer === 'string' && response.answer.trim()) {
+            try {
+              const parsed = JSON.parse(response.answer);
+              if (parsed && typeof parsed === 'object') {
+                formResponses[slide.id] = parsed;
+              }
+            } catch {
+              // If not valid JSON, skip
+            }
+          }
+          
+          // If formAnswer has data for this slide (user filled but maybe not saved yet, or saved with old code)
+          // Check if any field ID in formAnswer matches this slide's fields
+          const formSlide = slide as any;
+          if (formSlide.fields && formSlide.fields.length > 0) {
+            const slideFieldIds = formSlide.fields.map((f: any) => f.id);
+            const hasDataForThisSlide = Object.keys(formAnswer).some(key => slideFieldIds.includes(key));
+            
+            if (hasDataForThisSlide && Object.keys(formAnswer).length > 0) {
+              // Use formAnswer data for this slide
+              formResponses[slide.id] = formAnswer;
+            }
+          }
+        }
+      });
+    }
+    
+    return formResponses;
+  }, [quiz, responses, formAnswer]);
   
   // Board posts for current slide (if it's a board activity)
   const boardPosts = useBoardPosts({
@@ -1069,7 +1116,8 @@ export function QuizStudentView() {
           >
             <div 
               className={`
-                w-full rounded-3xl shadow-md overflow-hidden flex flex-col bg-white
+                w-full rounded-3xl overflow-hidden flex flex-col
+                ${currentSlide?.type === 'tools' && (currentSlide as ToolsSlide).toolType === 'certificate' && (currentSlide as ToolsSlide).certificateConfig?.customPdfUrl ? '' : 'bg-white shadow-md'}
                 ${currentSlide?.type !== 'info' ? 'max-w-5xl mx-auto' : ''}
                 ${currentSlideIndex > prevSlideIndex && isAnimating ? 'animate-slide-in' : ''}
                 ${currentSlideIndex < prevSlideIndex && isAnimating ? 'animate-slide-in-left' : ''}
@@ -1089,7 +1137,7 @@ export function QuizStudentView() {
               ) : (
                 <>
                   {/* Question - only for activity slides (except those with their own display) */}
-                  {currentSlide.type === 'activity' && currentSlide.activityType !== 'board' && currentSlide.activityType !== 'voting' && currentSlide.activityType !== 'connect-pairs' && currentSlide.activityType !== 'fill-blanks' && currentSlide.activityType !== 'image-hotspots' && currentSlide.activityType !== 'video-quiz' && (
+                  {currentSlide.type === 'activity' && currentSlide.activityType !== 'board' && currentSlide.activityType !== 'voting' && currentSlide.activityType !== 'connect-pairs' && currentSlide.activityType !== 'fill-blanks' && currentSlide.activityType !== 'image-hotspots' && currentSlide.activityType !== 'video-quiz' && currentSlide.activityType !== 'form' && (
                     <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8">
                       <AutoScaleQuestion>
                         {(currentSlide as any).question || (currentSlide as any).title || ''}
@@ -1340,6 +1388,33 @@ export function QuizStudentView() {
                 </div>
               )}
               
+              {/* Form activity */}
+              {currentSlide.type === 'activity' && currentSlide.activityType === 'form' && (
+                <div className="flex-1 overflow-y-auto">
+                  <FormView 
+                    slide={currentSlide as any}
+                    answer={formAnswer}
+                    onAnswerChange={(answer) => {
+                      setFormAnswer(answer);
+                      setTextAnswer(JSON.stringify(answer));
+                    }}
+                    isReadOnly={false}
+                  />
+                </div>
+              )}
+
+              {/* Tools slide - Certificate */}
+              {currentSlide.type === 'tools' && (currentSlide as ToolsSlide).toolType === 'certificate' && (
+                <div className="flex-1 overflow-y-auto">
+                  <CertificateView 
+                    slide={currentSlide as ToolsSlide}
+                    quiz={quiz}
+                    formResponses={collectFormResponses()}
+                    isPreview={false}
+                  />
+                </div>
+              )}
+              
               {/* Legacy info slide (without block layout) */}
               {currentSlide.type === 'info' && (!(currentSlide as InfoSlide).layout || (currentSlide as InfoSlide).layout!.blocks.length === 0) && (
                 <div className="flex-1 flex items-center justify-center p-8">
@@ -1361,7 +1436,18 @@ export function QuizStudentView() {
                     onClick={submitAnswer}
                     disabled={
                       ((currentSlide as any).activityType === 'abc' && !selectedOption) ||
-                      ((currentSlide as any).activityType === 'open' && !textAnswer.trim())
+                      ((currentSlide as any).activityType === 'open' && !textAnswer.trim()) ||
+                      ((currentSlide as any).activityType === 'example' && !textAnswer.trim()) ||
+                      // Form: disabled if required fields are not filled
+                      ((currentSlide as any).activityType === 'form' && 
+                        ((currentSlide as any).fields || []).some((field: any) => 
+                          field.required && (
+                            !formAnswer[field.id] || 
+                            (Array.isArray(formAnswer[field.id]) && (formAnswer[field.id] as string[]).length === 0) ||
+                            (typeof formAnswer[field.id] === 'string' && !(formAnswer[field.id] as string).trim())
+                          )
+                        )
+                      )
                     }
                     className={`flex items-center gap-2 px-8 py-4 rounded-xl text-white font-semibold text-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all ${showWiggle ? 'animate-wiggle' : ''}`}
                     style={{ 
@@ -1370,7 +1456,7 @@ export function QuizStudentView() {
                     }}
                   >
                     <Send className="w-5 h-5" />
-                    Odpovědět
+                    {currentSlide.activityType === 'form' ? 'Odeslat formulář' : 'Odpovědět'}
                   </button>
                 ) : currentSlideIndex < quiz.slides.length - 1 ? (
                   <button

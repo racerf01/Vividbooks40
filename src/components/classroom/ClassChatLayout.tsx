@@ -68,6 +68,7 @@ const LIBRARY_SUBJECTS = [
   { id: 'chemie', label: 'Chemie', color: '#ef4444' },
   { id: 'prirodopis', label: 'Přírodopis', color: '#22c55e' },
   { id: 'matematika', label: 'Matematika', color: '#3b82f6' },
+  { id: 'dejepis', label: 'Dějepis', color: '#d97706' },
 ];
 
 interface LibraryMenuItem {

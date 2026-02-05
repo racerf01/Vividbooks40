@@ -74,9 +74,9 @@ export async function chatWithAIProxy(
     
     console.log('[AI Proxy] Calling edge function...');
     
-    // Call edge function with timeout
+    // Call edge function with timeout - 3 minuty pro delší generování
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 180000); // 180s timeout (3 min)
     
     const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-chat`, {
       method: 'POST',
@@ -128,3 +128,67 @@ export function setUseAIProxy(enabled: boolean): void {
 
 export { shouldUseProxy };
 
+/**
+ * Generate image using Imagen API via Supabase Edge Function
+ */
+export async function generateImageWithImagen(
+  prompt: string,
+  options: { aspectRatio?: string; numberOfImages?: number; dataSetId?: string; illustrationName?: string } = {}
+): Promise<{ success: boolean; images?: { base64: string; mimeType: string }[]; url?: string; error?: string }> {
+  const { aspectRatio = '1:1', numberOfImages = 1, dataSetId, illustrationName } = options;
+
+  try {
+    console.log('[Imagen] Generating image...');
+    
+    // Get auth token
+    let authToken = publicAnonKey;
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        authToken = data.session.access_token;
+      }
+    } catch (e) {
+      console.log('[Imagen] Using anon key');
+    }
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+    
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/imagen-generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({
+        prompt,
+        aspectRatio,
+        numberOfImages,
+        dataSetId,
+        illustrationName,
+      }),
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+
+    const data = await response.json();
+    console.log('[Imagen] Response status:', response.status);
+    console.log('[Imagen] Response data:', {
+      success: data.success,
+      error: data.error,
+      hasUrl: !!data.url,
+      url: data.url,
+      hasImages: !!data.images,
+      imagesCount: data.images?.length,
+      firstImageHasBase64: !!data.images?.[0]?.base64,
+      firstImageBase64Length: data.images?.[0]?.base64?.length
+    });
+
+    return data;
+
+  } catch (error: any) {
+    console.error('[Imagen] Error:', error.message);
+    return { success: false, error: error.message };
+  }
+}

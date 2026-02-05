@@ -8,8 +8,10 @@ import React, { useState, useRef, useEffect, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X, Check, Circle, Square, Type, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Copy, Trash2, ImageIcon, Table as TableIcon, QrCode, ArrowLeftRight } from 'lucide-react';
-import { WorksheetBlock, ChoiceOption, GlobalFontSize, SpacerStyle, ExamplesContent, MathExample, ExampleDifficulty, AnswerBoxStyle, ImageContent, ImageSize, BlockImage, TableContent, ConnectPairsContent, ImageHotspotsContent, VideoQuizContent, ConnectPairContent, WorksheetHotspot, WorksheetVideoQuestion, HeaderFooterContent, QRCodeContent } from '../../types/worksheet';
+import { Plus, X, Check, Circle, Square, Type, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Copy, Trash2, ImageIcon, Table as TableIcon, QrCode, ArrowLeftRight, Bold, Italic, Underline } from 'lucide-react';
+import { WorksheetBlock, ChoiceOption, GlobalFontSize, SpacerStyle, ExamplesContent, MathExample, ExampleDifficulty, AnswerBoxStyle, ImageContent, ImageSize, BlockImage, TableContent, ConnectPairsContent, ImageHotspotsContent, VideoQuizContent, ConnectPairContent, WorksheetHotspot, WorksheetVideoQuestion, HeaderFooterContent, QRCodeContent, FreeCanvasContent } from '../../types/worksheet';
+import { FreeCanvasEditor } from './FreeCanvasEditor';
+import { FreeCanvasFullscreen } from './FreeCanvasFullscreen';
 import { QRCodeSVG } from 'qrcode.react';
 import { LatexRenderer } from './LatexRenderer';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -35,7 +37,7 @@ function PrintSafePattern({ variant, lineSpacing = 40 }: { variant: 'dotted' | '
             <circle cx="2" cy="2" r="1" fill={dotColor} />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#${patternId})`} />
+        <rect y="12" width="100%" height="calc(100% - 12px)" fill={`url(#${patternId})`} />
       </svg>
     );
   }
@@ -47,7 +49,7 @@ function PrintSafePattern({ variant, lineSpacing = 40 }: { variant: 'dotted' | '
           <line x1="0" y1={lineSpacing - 1} x2="2000" y2={lineSpacing - 1} stroke={lineColor} strokeWidth="1" />
         </pattern>
       </defs>
-      <rect width="100%" height="100%" fill={`url(#${patternId})`} />
+      <rect y="8" width="100%" height="calc(100% - 8px)" fill={`url(#${patternId})`} />
     </svg>
   );
 }
@@ -510,59 +512,8 @@ export function EditableBlock({ block, isSelected, isHovered, onSelect, onUpdate
       )}
     </div>
 
-    {/* Text formatting toolbar - rendered as portal to ensure it's above all panels */}
-    {showTextToolbar && createPortal(
-      <div 
-        className="fixed print:hidden worksheet-text-toolbar"
-        data-toolbar-for-block={block.id}
-        style={{ 
-          top: `${toolbarPosition.top}px`, 
-          left: `${toolbarPosition.left}px`, 
-          transform: 'translateX(-50%)',
-          pointerEvents: 'auto',
-          zIndex: 999999, // Extremely high z-index
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-        }}
-        onMouseDown={(e) => {
-          e.stopPropagation();
-        }}
-        onMouseUp={(e) => {
-          e.stopPropagation();
-        }}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-        }}
-        onPointerUp={(e) => {
-          e.stopPropagation();
-        }}
-      >
-        <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' }}>
-          <WorksheetTextToolbar
-            fontSize={formatState.fontSize}
-            textAlign={formatState.textAlign}
-            isBold={formatState.isBold}
-            isItalic={formatState.isItalic}
-            isUnderline={formatState.isUnderline}
-            textColor={formatState.textColor}
-            highlightColor={formatState.highlightColor}
-            listType={formatState.listType}
-            onFontSizeChange={handleFontSizeChange}
-            onAlignChange={handleAlignChange}
-            onBoldToggle={handleBoldToggle}
-            onItalicToggle={handleItalicToggle}
-            onUnderlineToggle={handleUnderlineToggle}
-            onTextColorChange={handleTextColorChange}
-            onHighlightColorChange={handleHighlightColorChange}
-            onListTypeChange={handleListTypeChange}
-            onInsertSymbol={handleInsertSymbol}
-            onOpenAI={onOpenAI}
-          />
-        </div>
-      </div>,
-      document.body
-    )}
+    {/* Text formatting toolbar - REMOVED per user request */}
+    {/* showTextToolbar && createPortal(...) */}
     </>
   );
 }
@@ -825,6 +776,15 @@ function BlockContent({ block, isEditing, isSelected, onUpdate, onBlur, onKeyDow
           content={block.content as HeaderFooterContent}
           isEditing={isEditing}
           onUpdate={onUpdate}
+        />
+      );
+    case 'free-canvas':
+      return (
+        <FreeCanvasActivityBlock
+          block={block}
+          isEditing={isEditing}
+          onUpdate={onUpdate}
+          activityNumber={activityNumber}
         />
       );
     default:
@@ -1261,9 +1221,38 @@ interface MultipleChoiceEditorProps {
 function MultipleChoiceEditor({ content, isEditing, onUpdate, onBlur, onKeyDown, fontSizes, activityNumber }: MultipleChoiceEditorProps) {
   const questionRef = useRef<HTMLTextAreaElement>(null);
   const variant = content.variant || 'text';
-  const gridColumns = content.gridColumns || 4;
+  const gridColumns = content.gridColumns || 1;
+  const letterPosition = content.letterPosition || 'bottom';
+  
+  // Text styles for question
+  const questionStyles: React.CSSProperties = {
+    fontFamily: content.fontFamily || "'Fenomen Sans', sans-serif",
+    fontSize: content.fontSize ? `${content.fontSize}pt` : fontSizes.title,
+    fontWeight: content.fontWeight === 'bold' || content.isBold ? 'bold' : (content.fontWeight || '500'),
+    color: content.textColor || '#1e293b',
+    lineHeight: content.lineHeight || 1.2,
+    letterSpacing: `${content.letterSpacing || 0}%`,
+    textAlign: content.align || 'left',
+    fontStyle: content.isItalic ? 'italic' : 'normal',
+    textDecoration: content.isUnderline ? 'underline' : 'none',
+  };
 
-  // Auto-resize textarea
+  // Text styles for options
+  const optionTextStyles: React.CSSProperties = {
+    fontFamily: content.fontFamily || "'Fenomen Sans', sans-serif",
+    fontSize: content.fontSize ? `${Math.max(8, content.fontSize * 0.85)}pt` : fontSizes.body,
+    fontWeight: content.fontWeight === 'bold' || content.isBold ? 'bold' : 'normal',
+    color: content.textColor || '#475569',
+    lineHeight: content.lineHeight || 1.5,
+    letterSpacing: `${content.letterSpacing || 0}%`,
+    fontStyle: content.isItalic ? 'italic' : 'normal',
+    textDecoration: content.isUnderline ? 'underline' : 'none',
+  };
+
+  const correctAnswers = content.correctAnswers || [];
+  const circleColor = content.circleColor || '#1e293b';
+  const circleSize = content.circleSize || 21;
+
   const autoResize = useCallback(() => {
     if (questionRef.current) {
       questionRef.current.style.height = 'auto';
@@ -1282,6 +1271,42 @@ function MultipleChoiceEditor({ content, isEditing, onUpdate, onBlur, onKeyDown,
     onUpdate({ ...content, question: value });
   };
 
+  const applyFormat = (command: string) => {
+    const textarea = questionRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selectedText = text.substring(start, end);
+
+    if (!selectedText) return;
+
+    let formattedText = '';
+    switch (command) {
+      case 'bold':
+        formattedText = `**${selectedText}**`;
+        break;
+      case 'italic':
+        formattedText = `*${selectedText}*`;
+        break;
+      case 'underline':
+        formattedText = `<u>${selectedText}</u>`;
+        break;
+      default:
+        return;
+    }
+
+    const newValue = text.substring(0, start) + formattedText + text.substring(end);
+    handleQuestionChange(newValue);
+
+    // Reset selection after state update
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start, start + formattedText.length);
+    }, 0);
+  };
+
   const handleOptionChange = (optionId: string, text: string) => {
     onUpdate({
       ...content,
@@ -1291,15 +1316,33 @@ function MultipleChoiceEditor({ content, isEditing, onUpdate, onBlur, onKeyDown,
     });
   };
 
-  const addOption = () => {
-    const newOption: ChoiceOption = {
-      id: `opt-${Date.now()}`,
-      text: '',
-    };
-    onUpdate({
-      ...content,
-      options: [...content.options, newOption],
-    });
+  const applyOptionFormat = (optionId: string, command: string) => {
+    const option = content.options.find(o => o.id === optionId);
+    if (!option) return;
+
+    // We don't have refs for each option input, so we'll use a simpler approach
+    // or just rely on the user manually typing markdown for now.
+    // But since you asked for bold/italic on selection, I'll add a helper that
+    // can be triggered if we find the active element.
+    const activeEl = document.activeElement as HTMLInputElement;
+    if (!activeEl || activeEl.tagName !== 'INPUT') return;
+
+    const start = activeEl.selectionStart || 0;
+    const end = activeEl.selectionEnd || 0;
+    const text = activeEl.value;
+    const selectedText = text.substring(start, end);
+
+    if (!selectedText) return;
+
+    let formattedText = '';
+    switch (command) {
+      case 'bold': formattedText = `**${selectedText}**`; break;
+      case 'italic': formattedText = `*${selectedText}*`; break;
+      case 'underline': formattedText = `<u>${selectedText}</u>`; break;
+    }
+
+    const newValue = text.substring(0, start) + formattedText + text.substring(end);
+    handleOptionChange(optionId, newValue);
   };
 
   const removeOption = (optionId: string) => {
@@ -1311,33 +1354,344 @@ function MultipleChoiceEditor({ content, isEditing, onUpdate, onBlur, onKeyDown,
     });
   };
 
-  const handleInsertLatex = (latex: string) => {
-    handleQuestionChange(content.question + ' ' + latex);
-  };
+  // 1. ABC text
+  const renderTextVariant = () => (
+    <div 
+      className="grid"
+      style={{ 
+        gridTemplateColumns: gridColumns === 4 
+          ? 'repeat(auto-fill, minmax(160px, 1fr))' 
+          : `repeat(${gridColumns}, minmax(0, 1fr))`,
+        columnGap: '24px',
+        rowGap: gridColumns <= 2 ? '12px' : '16px',
+        marginTop: '12px'
+      }}
+    >
+      {content.options.map((opt, i) => {
+        const isCorrect = correctAnswers.includes(opt.id);
+        return (
+          <div key={opt.id} className="flex items-start gap-3 group/option min-w-0">
+            {/* Circle with letter */}
+            <div
+              className={`flex items-center justify-center shrink-0 font-semibold choice-circle ${isCorrect ? 'choice-circle--correct' : ''}`}
+              style={{
+                width: `${circleSize}px`,
+                height: `${circleSize}px`,
+                minWidth: `${circleSize}px`,
+                minHeight: `${circleSize}px`,
+                borderRadius: '50%',
+                border: isCorrect ? 'none' : `1.5px solid ${circleColor}`,
+                color: isCorrect ? '#ffffff' : circleColor,
+                backgroundColor: isCorrect ? '#22c55e' : 'transparent',
+                fontSize: `${Math.round(circleSize * 0.57)}px`,
+                marginTop: '2px'
+              }}
+            >
+              {String.fromCharCode(65 + i)}
+            </div>
+            
+            {/* Text area */}
+            <div className="flex-1 min-w-0 leading-normal group/option-text relative">
+              {isEditing ? (
+                <div className="flex items-start gap-2 w-full relative">
+                  <input
+                    type="text"
+                    value={opt.text}
+                    onChange={(e) => handleOptionChange(opt.id, e.target.value)}
+                    onBlur={onBlur}
+                    onKeyDown={onKeyDown}
+                    className="flex-1 bg-transparent border-none outline-none p-0 m-0 w-full min-w-0"
+                    style={{ 
+                      ...optionTextStyles, 
+                      height: 'auto', 
+                      lineHeight: optionTextStyles.lineHeight || 'normal',
+                      padding: 0,
+                      margin: 0
+                    }}
+                    placeholder={`Možnost ${i + 1}`}
+                  />
+                  {/* Mini format toolbar for options */}
+                  <div className="absolute -top-7 left-0 flex items-center gap-1 bg-white border border-slate-200 rounded-md shadow-sm p-0.5 z-50 opacity-0 group-hover/option-text:opacity-100 transition-opacity">
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); applyOptionFormat(opt.id, 'bold'); }}
+                      className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
+                    >
+                      <Bold size={12} />
+                    </button>
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); applyOptionFormat(opt.id, 'italic'); }}
+                      className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
+                    >
+                      <Italic size={12} />
+                    </button>
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); applyOptionFormat(opt.id, 'underline'); }}
+                      className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
+                    >
+                      <Underline size={12} />
+                    </button>
+                  </div>
+                  {content.options.length > 2 && (
+                    <button
+                      onClick={() => removeOption(opt.id)}
+                      className="opacity-0 group-hover/option:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-all shrink-0"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div 
+                  style={{ 
+                    ...optionTextStyles, 
+                    lineHeight: optionTextStyles.lineHeight || 'normal',
+                    padding: 0,
+                    margin: 0
+                  }} 
+                  className="break-words"
+                >
+                  {opt.text ? (
+                    <LatexRenderer text={opt.text} />
+                  ) : (
+                    <span className="text-slate-300 italic">Možnost {i + 1}...</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // 2. ABC text + obr. (Mixed) AND 3. ABC obrázky
+  const renderImageVariant = (isMixed: boolean) => (
+    <div 
+      className="grid gap-6 mt-4"
+      style={{ 
+        gridTemplateColumns: `repeat(${content.gridColumns || 4}, minmax(0, 1fr))` 
+      }}
+    >
+      {content.options.map((opt, i) => {
+        const isCorrect = correctAnswers.includes(opt.id);
+        return (
+          <div key={opt.id} className="relative group/opt flex flex-col">
+            {/* Image Box */}
+            <div 
+              className="aspect-square bg-slate-50 rounded-xl border border-slate-300 relative mb-2"
+              style={{ overflow: 'visible' }}
+            >
+              <div className="w-full h-full rounded-xl overflow-hidden relative">
+                {opt.imageUrl ? (
+                  <img src={opt.imageUrl} className="w-full h-full object-cover" alt={opt.text} style={{ display: 'block' }} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-300">
+                    <ImageIcon className="w-8 h-8 opacity-20" />
+                  </div>
+                )}
+                {isEditing && (
+                  <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/opt:opacity-100 transition-opacity pointer-events-none" />
+                )}
+              </div>
+
+              {/* Letter Overlay */}
+              {letterPosition === 'overlay' && (
+                <div
+                  className={`flex items-center justify-center font-semibold choice-circle ${isCorrect ? 'choice-circle--correct' : ''}`}
+                  style={{
+                    position: 'absolute',
+                    top: '8px',
+                    left: '8px',
+                    width: `${circleSize + 3}px`,
+                    height: `${circleSize + 3}px`,
+                    borderRadius: '50%',
+                    border: isCorrect ? 'none' : `1.5px solid ${circleColor}`,
+                    color: isCorrect ? '#ffffff' : circleColor,
+                    backgroundColor: isCorrect ? '#22c55e' : 'rgba(255,255,255,0.95)',
+                    fontSize: `${Math.round(circleSize * 0.57)}px`,
+                    zIndex: 100,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                    pointerEvents: 'none'
+                  }}
+                >
+                  {String.fromCharCode(65 + i)}
+                </div>
+              )}
+            </div>
+            
+            {/* Bottom section (Letter and Text) */}
+            <div className="flex items-start gap-2 px-1 min-h-[24px]">
+              {/* Letter Bottom */}
+              {letterPosition === 'bottom' && (
+                <div
+                  className={`flex items-center justify-center shrink-0 font-semibold choice-circle ${isCorrect ? 'choice-circle--correct' : ''}`}
+                  style={{
+                    width: `${circleSize}px`,
+                    height: `${circleSize}px`,
+                    minWidth: `${circleSize}px`,
+                    minHeight: `${circleSize}px`,
+                    borderRadius: '50%',
+                    border: isCorrect ? 'none' : `1.5px solid ${circleColor}`,
+                    color: isCorrect ? '#ffffff' : circleColor,
+                    backgroundColor: isCorrect ? '#22c55e' : 'transparent',
+                    fontSize: `${Math.round(circleSize * 0.57)}px`,
+                    marginTop: '1px'
+                  }}
+                >
+                  {String.fromCharCode(65 + i)}
+                </div>
+              )}
+
+              {/* Text - ONLY visible in Mixed variant */}
+              {isMixed && (
+                <div className="flex-1 min-w-0 leading-tight group/mixed-text relative">
+                  {isEditing ? (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={opt.text}
+                        onChange={(e) => handleOptionChange(opt.id, e.target.value)}
+                        onBlur={onBlur}
+                        onKeyDown={onKeyDown}
+                        className="w-full bg-transparent border-none outline-none p-0 m-0 w-full"
+                        style={{ 
+                          ...optionTextStyles, 
+                          lineHeight: optionTextStyles.lineHeight || 'tight',
+                          padding: 0,
+                          margin: 0
+                        }}
+                        placeholder={`Možnost ${i + 1}`}
+                      />
+                      {/* Mini format toolbar for mixed options */}
+                      <div className="absolute -top-7 left-0 flex items-center gap-1 bg-white border border-slate-200 rounded-md shadow-sm p-0.5 z-50 opacity-0 group-hover/mixed-text:opacity-100 transition-opacity">
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); applyOptionFormat(opt.id, 'bold'); }}
+                          className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
+                        >
+                          <Bold size={12} />
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); applyOptionFormat(opt.id, 'italic'); }}
+                          className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
+                        >
+                          <Italic size={12} />
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); applyOptionFormat(opt.id, 'underline'); }}
+                          className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
+                        >
+                          <Underline size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      style={{ 
+                        ...optionTextStyles, 
+                        lineHeight: optionTextStyles.lineHeight || 'tight',
+                        padding: 0,
+                        margin: 0
+                      }} 
+                      className="break-words"
+                    >
+                      {opt.text ? (
+                        <LatexRenderer text={opt.text} />
+                      ) : (
+                        <span className="text-slate-300 italic">Možnost {i + 1}...</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Delete button when editing */}
+            {isEditing && content.options.length > 2 && (
+              <button
+                onClick={() => removeOption(opt.id)}
+                className="absolute -top-2 -right-2 bg-white border border-slate-200 rounded-full p-1 shadow-sm text-slate-400 hover:text-red-500 opacity-0 group-hover/opt:opacity-100 transition-all z-20"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // 4. Ano / Ne (Boolean)
+  const renderBooleanVariant = () => (
+    <div 
+      className="grid gap-x-6"
+      style={{ 
+        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+        rowGap: '12px',
+        marginTop: '12px'
+      }}
+    >
+      {[
+        { id: 'opt-bool-0', text: 'Ano' },
+        { id: 'opt-bool-1', text: 'Ne' }
+      ].map((opt, i) => {
+        const isCorrect = correctAnswers.includes(opt.id);
+        return (
+          <div 
+            key={opt.id} 
+            className="flex items-center gap-3 group/option cursor-pointer min-w-0"
+            onClick={() => isEditing && onUpdate({ ...content, correctAnswers: [opt.id] })}
+          >
+          <div
+            className={`flex items-center justify-center shrink-0 font-semibold choice-circle ${isCorrect ? 'choice-circle--correct' : ''}`}
+            style={{
+              width: `${circleSize}px`,
+              height: `${circleSize}px`,
+              minWidth: `${circleSize}px`,
+              minHeight: `${circleSize}px`,
+              borderRadius: '50%',
+              border: isCorrect ? 'none' : `1.5px solid ${circleColor}`,
+              color: isCorrect ? '#ffffff' : circleColor,
+              backgroundColor: isCorrect ? '#22c55e' : 'transparent',
+              fontSize: `${Math.round(circleSize * 0.57)}px`,
+            }}
+          >
+            {String.fromCharCode(65 + i)}
+          </div>
+            
+            <div className="flex-1 leading-normal min-w-0">
+              <div style={optionTextStyles} className="font-bold">
+                {opt.text}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div style={{ fontSize: fontSizes.body }}>
-      {/* Question with optional activity number */}
+      {/* Question section */}
       <div className="flex items-start gap-3 mb-3">
         {activityNumber && (
           <div
             className="flex items-center justify-center shrink-0 font-bold text-white activity-number-circle"
             style={{ 
-              width: '21px',
-              height: '21px',
-              minWidth: '21px',
-              minHeight: '21px',
+              width: `${circleSize}px`,
+              height: `${circleSize}px`,
+              minWidth: `${circleSize}px`,
+              minHeight: `${circleSize}px`,
               borderRadius: '50%',
-              backgroundColor: '#1e293b',
-              fontSize: '12px',
+              backgroundColor: circleColor,
+              fontSize: `${Math.round(circleSize * 0.57)}px`,
             }}
           >
             {activityNumber}
           </div>
         )}
-        <div className="flex-1">
+        <div className="flex-1 relative group/question">
           {isEditing ? (
-            <>
+            <div className="relative">
               <textarea
                 ref={questionRef}
                 value={content.question}
@@ -1348,173 +1702,62 @@ function MultipleChoiceEditor({ content, isEditing, onUpdate, onBlur, onKeyDown,
                 onBlur={onBlur}
                 onKeyDown={onKeyDown}
                 onInput={autoResize}
-                className="w-full font-medium text-slate-800 bg-transparent border-none outline-none resize-none overflow-hidden"
-                style={{ fontSize: fontSizes.title, minHeight: '1.5em' }}
+                className="w-full bg-transparent border-none outline-none resize-none overflow-hidden p-0 m-0 display-block"
+                style={{ 
+                  ...questionStyles,
+                  minHeight: '1.5em',
+                  lineHeight: questionStyles.lineHeight || 1.2
+                }}
                 placeholder="Zadejte otázku..."
                 rows={1}
               />
-            </>
+              {/* Mini format toolbar for selection */}
+              <div className="absolute -top-8 left-0 flex items-center gap-1 bg-white border border-slate-200 rounded-lg shadow-sm p-1 z-50 opacity-0 group-hover/question:opacity-100 transition-opacity">
+                <button
+                  onMouseDown={(e) => { e.preventDefault(); applyFormat('bold'); }}
+                  className="p-1 hover:bg-slate-100 rounded text-slate-600"
+                  title="Tučné"
+                >
+                  <Bold size={14} />
+                </button>
+                <button
+                  onMouseDown={(e) => { e.preventDefault(); applyFormat('italic'); }}
+                  className="p-1 hover:bg-slate-100 rounded text-slate-600"
+                  title="Kurzíva"
+                >
+                  <Italic size={14} />
+                </button>
+                <button
+                  onMouseDown={(e) => { e.preventDefault(); applyFormat('underline'); }}
+                  className="p-1 hover:bg-slate-100 rounded text-slate-600"
+                  title="Podtržené"
+                >
+                  <Underline size={14} />
+                </button>
+              </div>
+            </div>
           ) : (
-            <p className="font-medium text-slate-800" style={{ fontSize: fontSizes.title }}>
+            <div style={{ ...questionStyles, margin: 0, padding: 0, minHeight: '1.5em' }}>
               {content.question ? (
                 <LatexRenderer text={content.question} />
               ) : (
                 <span className="text-slate-400">Otázka...</span>
               )}
-            </p>
+            </div>
           )}
         </div>
       </div>
 
-      {variant === 'image' ? (
-        <div 
-          className="grid gap-4 mt-4"
-          style={{ 
-            gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` 
-          }}
-        >
-          {content.options.map((opt, i) => {
-            const isCorrect = content.correctAnswers.includes(opt.id);
-            return (
-              <div key={opt.id} className="relative group/opt">
-                <div 
-                  className="aspect-square bg-slate-50 rounded-xl overflow-hidden border border-slate-300 relative"
-                >
-                  {opt.imageUrl ? (
-                    <img src={opt.imageUrl} className="w-full h-full object-cover" alt={opt.text} />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300">
-                      <ImageIcon className="w-8 h-8 opacity-20" />
-                    </div>
-                  )}
-
-                  {isEditing && (
-                    <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/opt:opacity-100 transition-opacity flex items-center justify-center pointer-events-none" />
-                  )}
-                </div>
-                
-                {/* Answer indicator and text - identical to text version layout */}
-                <div className="mt-2 flex items-start gap-2 px-1">
-                  <div
-                    className={`flex items-center justify-center shrink-0 font-semibold choice-circle ${isCorrect ? 'choice-circle--correct' : ''}`}
-                    style={{
-                      width: '21px',
-                      height: '21px',
-                      minWidth: '21px',
-                      minHeight: '21px',
-                      borderRadius: '50%',
-                      border: isCorrect ? 'none' : '1.5px solid #1e293b',
-                      color: isCorrect ? '#ffffff' : '#1e293b',
-                      backgroundColor: isCorrect ? '#22c55e' : 'transparent',
-                      fontSize: '12px',
-                      marginTop: '1px'
-                    }}
-                  >
-                    {String.fromCharCode(65 + i)}
-                  </div>
-
-                  <div className="flex-1 min-w-0 text-slate-700 leading-tight" style={{ fontSize: fontSizes.small }}>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={opt.text}
-                        onChange={(e) => handleOptionChange(opt.id, e.target.value)}
-                        onBlur={onBlur}
-                        onKeyDown={onKeyDown}
-                        className="w-full bg-transparent border-none outline-none p-0"
-                        placeholder={`Možnost ${i + 1}`}
-                      />
-                    ) : (
-                      opt.text ? (
-                        <LatexRenderer text={opt.text} />
-                      ) : (
-                        <span className="text-slate-300 italic">Možnost {i + 1}...</span>
-                      )
-                    )}
-                  </div>
-                </div>
-
-                {isEditing && content.options.length > 2 && (
-                  <button
-                    onClick={() => removeOption(opt.id)}
-                    className="absolute -top-2 -right-2 bg-white border border-slate-200 rounded-full p-1 shadow-sm text-slate-400 hover:text-red-500 opacity-0 group-hover/opt:opacity-100 transition-all z-20"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {content.options.map((opt, i) => {
-            const isCorrect = content.correctAnswers.includes(opt.id);
-            return (
-              <div key={opt.id} className="flex items-center gap-3 group/option">
-                {/* Circle with letter A, B, C, D - green if correct */}
-                <div
-                  className={`flex items-center justify-center shrink-0 font-semibold choice-circle ${isCorrect ? 'choice-circle--correct' : ''}`}
-                  style={{
-                    width: '21px',
-                    height: '21px',
-                    minWidth: '21px',
-                    minHeight: '21px',
-                    borderRadius: '50%',
-                    border: isCorrect ? 'none' : '1.5px solid #1e293b',
-                    color: isCorrect ? '#ffffff' : '#1e293b',
-                    backgroundColor: isCorrect ? '#22c55e' : 'transparent',
-                    fontSize: '12px',
-                  }}
-                >
-                  {String.fromCharCode(65 + i)}
-                </div>
-                
-                {isEditing ? (
-                  <>
-                    <input
-                      type="text"
-                      value={opt.text}
-                      onChange={(e) => handleOptionChange(opt.id, e.target.value)}
-                      onBlur={onBlur}
-                      onKeyDown={onKeyDown}
-                      className="flex-1 text-slate-600 bg-transparent border-none outline-none"
-                      style={{ fontSize: fontSizes.body }}
-                      placeholder={`Možnost ${i + 1}`}
-                    />
-                    {content.options.length > 2 && (
-                      <button
-                        onClick={() => removeOption(opt.id)}
-                        className="opacity-0 group-hover/option:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-all"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex-1 text-slate-600" style={{ fontSize: fontSizes.body }}>
-                    {opt.text ? (
-                      <LatexRenderer text={opt.text} />
-                    ) : (
-                      <span className="text-slate-300 italic">Možnost {i + 1}...</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {isEditing && (
-        <button
-          onClick={addOption}
-          className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mt-4 text-sm font-medium transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Přidat možnost
-        </button>
-      )}
+      {/* Answer options based on variant */}
+      {(() => {
+        switch (variant) {
+          case 'text': return renderTextVariant();
+          case 'mixed': return renderImageVariant(true);
+          case 'image': return renderImageVariant(false);
+          case 'boolean': return renderBooleanVariant();
+          default: return renderTextVariant();
+        }
+      })()}
     </div>
   );
 }
@@ -3722,6 +3965,115 @@ function HeaderFooterEditorBlock({ content, isEditing, onUpdate }: HeaderFooterE
           {/* Číslo stránky */}
           {content.showPageNumber && <PageNumberIcon />}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// FREE CANVAS EDITOR BLOCK
+// ============================================
+
+// ============================================
+// FREE CANVAS ACTIVITY BLOCK - Kompletně nová struktura
+// ============================================
+
+interface FreeCanvasActivityBlockProps {
+  block: WorksheetBlock;
+  isEditing: boolean;
+  onUpdate: (content: any) => void;
+  activityNumber?: number;
+}
+
+function FreeCanvasActivityBlock({ block, isEditing, onUpdate, activityNumber }: FreeCanvasActivityBlockProps) {
+  const content = block.content as FreeCanvasContent;
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [blockWidth, setBlockWidth] = useState(750);
+
+  const handleEnterFullscreen = () => {
+    if (containerRef.current) {
+      setBlockWidth(containerRef.current.offsetWidth);
+    }
+    setIsFullscreen(true);
+  };
+
+  const instructionText = (content as any).question || '';
+
+  return (
+    <div 
+      ref={containerRef}
+      className="w-full relative"
+      style={{ 
+        margin: '-4px -16px -4px -16px',
+        width: 'calc(100% + 32px)',
+      }}
+    >
+      {/* 1. Zadání s číslem - normální padding */}
+      <div 
+        className="flex gap-3 items-start px-4 py-1"
+        style={{
+          fontFamily: content.fontFamily || FONT_FAMILY,
+          fontSize: content.fontSize || FONT_SIZES.body,
+          fontWeight: content.fontWeight || 'normal',
+          fontStyle: content.italic ? 'italic' : 'normal',
+          color: content.textColor || '#1e293b',
+          lineHeight: content.lineHeight || 1.5,
+        }}
+      >
+        {activityNumber && (
+          <div style={{
+            width: `${content.circleSize || 21}px`,
+            height: `${content.circleSize || 21}px`,
+            borderRadius: '50%',
+            backgroundColor: content.circleColor || '#1e293b',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: `${(content.circleSize || 21) * 0.6}px`,
+            fontWeight: 'bold',
+            flexShrink: 0,
+            marginTop: '2px',
+          }}>
+            {activityNumber}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          {isEditing ? (
+            <textarea
+              value={instructionText}
+              onChange={(e) => onUpdate({ ...content, question: e.target.value })}
+              className="w-full bg-transparent border-none outline-none resize-none overflow-hidden p-0 m-0"
+              style={{ minHeight: '1.5em' }}
+              placeholder="Zadejte zadání aktivity..."
+            />
+          ) : (
+            <div style={{ minHeight: '1.5em' }}>
+              {instructionText || <span className="text-slate-400">Zadání aktivity...</span>}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 2. Plátno - PŘES CELOU ŠÍŘKU bez jakýchkoliv okrajů */}
+      <div className="w-full overflow-hidden bg-white border-t border-gray-200">
+        <FreeCanvasEditor
+          content={content}
+          onUpdate={onUpdate}
+          isEditing={false}
+          onEnterFullscreen={handleEnterFullscreen}
+        />
+      </div>
+
+      {isFullscreen && (
+        <FreeCanvasFullscreen
+          content={{ ...content, canvasWidth: blockWidth }}
+          onUpdate={(newContent) => onUpdate({ ...newContent, canvasWidth: blockWidth })}
+          onClose={() => setIsFullscreen(false)}
+          blockId={block.id}
+          blockWidth={blockWidth}
+        />
       )}
     </div>
   );

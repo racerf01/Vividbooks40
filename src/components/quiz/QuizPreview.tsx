@@ -39,6 +39,7 @@ import {
   VideoQuizActivitySlide,
   InfoSlide,
   SlideResponse,
+  ToolsSlide,
   calculateQuizScore,
   getTemplateById,
 } from '../../types/quiz';
@@ -50,6 +51,8 @@ import { ConnectPairsView } from './slides/ConnectPairsView';
 import { FillBlanksView } from './slides/FillBlanksView';
 import { ImageHotspotsView } from './slides/ImageHotspotsView';
 import { VideoQuizView } from './slides/VideoQuizView';
+import { FormView } from './slides/FormView';
+import { CertificateView } from './slides/CertificateView';
 import Lottie from 'lottie-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { checkMathAnswer } from '../../utils/math-compare';
@@ -1365,6 +1368,7 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
   const [responses, setResponses] = useState<SlideResponse[]>([]);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [textAnswer, setTextAnswer] = useState('');
+  const [formAnswer, setFormAnswer] = useState<Record<string, string | string[]>>({});
   const [showResult, setShowResult] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [showChapterMenu, setShowChapterMenu] = useState(false);
@@ -1556,13 +1560,14 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
   }, [quiz, currentSlideIndex, isAnimating, responses, onComplete]);
   
   const goToPrevSlide = useCallback(() => {
-    if (currentSlideIndex > 0 && !isAnimating && quiz.settings.allowBack) {
+    const allowBack = quiz?.settings?.allowBack ?? true;
+    if (currentSlideIndex > 0 && !isAnimating && allowBack) {
       setIsAnimating(true);
       setPrevSlideIndex(currentSlideIndex);
       setCurrentSlideIndex(prev => prev - 1);
       setTimeout(() => setIsAnimating(false), 500);
     }
-  }, [currentSlideIndex, isAnimating, quiz.settings.allowBack]);
+  }, [currentSlideIndex, isAnimating, quiz?.settings?.allowBack]);
   
   // Submit answer
   const submitAnswer = () => {
@@ -1824,8 +1829,35 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
                 readOnly={false}
               />
             );
+          case 'form':
+            return (
+              <FormView 
+                slide={slide as any}
+                answer={formAnswer}
+                onAnswerChange={(answer) => {
+                  setFormAnswer(answer);
+                  // Also store as text answer for saving
+                  setTextAnswer(JSON.stringify(answer));
+                }}
+                isReadOnly={false}
+              />
+            );
           default:
             return <div className="text-slate-500 text-center">Nepodporovaný typ aktivity</div>;
+        }
+      case 'tools':
+        const toolsSlide = slide as ToolsSlide;
+        switch (toolsSlide.toolType) {
+          case 'certificate':
+            return (
+              <CertificateView 
+                slide={toolsSlide}
+                quiz={quiz}
+                isPreview={true}
+              />
+            );
+          default:
+            return <div className="text-slate-500 text-center">Nepodporovaný typ nástroje</div>;
         }
       default:
         return <div className="text-slate-500 text-center">Nepodporovaný typ slidu</div>;
@@ -2156,8 +2188,8 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
           {/* Left arrow - exact copy from QuizStudentView */}
           <button
             onClick={goToPrevSlide}
-            disabled={currentSlideIndex === 0 || !quiz.settings.allowBack}
-            className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${currentSlideIndex === 0 || !quiz.settings.allowBack ? 'opacity-30 cursor-not-allowed' : ''} bg-[#CBD5E1] text-slate-600`}
+            disabled={currentSlideIndex === 0 || !(quiz?.settings?.allowBack ?? true)}
+            className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${currentSlideIndex === 0 || !(quiz?.settings?.allowBack ?? true) ? 'opacity-30 cursor-not-allowed' : ''} bg-[#CBD5E1] text-slate-600`}
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -2213,9 +2245,9 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
           >
             <button
               onClick={goToPrevSlide}
-              disabled={currentSlideIndex === 0 || !quiz.settings.allowBack}
+              disabled={currentSlideIndex === 0 || !(quiz?.settings?.allowBack ?? true)}
               className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ease-out bg-[#CBD5E1] text-slate-600 ${
-                currentSlideIndex === 0 || !quiz.settings.allowBack ? 'opacity-30 cursor-not-allowed' : 'hover:h-28'
+                currentSlideIndex === 0 || !(quiz?.settings?.allowBack ?? true) ? 'opacity-30 cursor-not-allowed' : 'hover:h-28'
               }`}
             >
               <ArrowLeft className="w-5 h-5" />
@@ -2268,13 +2300,28 @@ export function QuizPreview({ quiz, onClose, isLive = false, onComplete, initial
               )}
               
               {/* Submit button for activities */}
-              {currentSlide?.type === 'activity' && !hasAnswered && (selectedOption || textAnswer.trim()) && (
+              {currentSlide?.type === 'activity' && !hasAnswered && (
+                // Show for regular activities when answer is provided
+                (currentSlide.activityType !== 'form' && (selectedOption || textAnswer.trim())) ||
+                // Show for form when it has fields
+                (currentSlide.activityType === 'form' && (currentSlide as any).fields?.length > 0)
+              ) && (
                 <div className="p-6 flex justify-center border-t border-slate-100">
                   <button
                     onClick={submitAnswer}
-                    className="px-8 py-3 rounded-xl font-medium transition-colors bg-indigo-600 hover:bg-indigo-700 text-white"
+                    disabled={
+                      currentSlide.activityType === 'form' && 
+                      ((currentSlide as any).fields || []).some((field: any) => 
+                        field.required && (
+                          !formAnswer[field.id] || 
+                          (Array.isArray(formAnswer[field.id]) && (formAnswer[field.id] as string[]).length === 0) ||
+                          (typeof formAnswer[field.id] === 'string' && !(formAnswer[field.id] as string).trim())
+                        )
+                      )
+                    }
+                    className="px-8 py-3 rounded-xl font-medium transition-colors bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-slate-300 disabled:cursor-not-allowed"
                   >
-                    Odpovědět
+                    {currentSlide.activityType === 'form' ? 'Odeslat formulář' : 'Odpovědět'}
                   </button>
                 </div>
               )}

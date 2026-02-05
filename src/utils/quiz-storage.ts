@@ -841,6 +841,38 @@ export async function manualSyncQuizToSupabase(id: string): Promise<boolean> {
 }
 
 /**
+ * Uložit quiz přímo do Supabase (bez závislosti na localStorage)
+ * Používat když localStorage quota exceeded
+ */
+export async function syncQuizDirectToSupabase(quiz: Quiz): Promise<boolean> {
+  try {
+    console.log('[QuizStorage] Direct sync starting for:', quiz.id);
+    
+    const listItem: QuizListItem = {
+      id: quiz.id,
+      title: quiz.title || 'Bez názvu',
+      subject: quiz.subject || undefined,
+      grade: quiz.grade || undefined,
+      updatedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      slidesCount: quiz.slides?.length || 0,
+      folderId: undefined,
+    };
+    
+    await syncQuizToSupabase(quiz, listItem);
+    
+    // Mark as synced
+    supabaseQuizIds.add(quiz.id);
+    
+    console.log('[QuizStorage] Direct sync completed for:', quiz.id);
+    return true;
+  } catch (error) {
+    console.error('[QuizStorage] Direct sync failed:', error);
+    return false;
+  }
+}
+
+/**
  * Get debug info for a quiz
  */
 export function getQuizDebugInfo(id: string): string {
@@ -1370,4 +1402,3 @@ export async function cleanupDuplicatesAndForceUpload(): Promise<{ cleaned: numb
     return result;
   }
 }
-

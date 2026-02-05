@@ -184,6 +184,7 @@ const CATEGORIES: Category[] = [
   { id: 'chemie', label: 'Chemie', color: '#ef4444' },
   { id: 'prirodopis', label: 'Přírodopis', color: '#22c55e' },
   { id: 'matematika', label: 'Matematika', color: '#3b82f6' },
+  { id: 'dejepis', label: 'Dějepis', color: '#d97706' },
   { id: 'navody', label: 'Návody', color: '#f59e0b' },
   { id: 'knihovna-vividbooks', label: 'Knihovna Vividbooks', color: '#06b6d4' },
 ];
@@ -2060,6 +2061,14 @@ export function AdminColumnBrowser({ activeCategory, onSelectDocument, onCreateD
             <DropdownMenuItem onClick={() => navigate('/admin/migration')}>
               <Download className="h-4 w-4 mr-2" />
               Migrace obsahu
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/admin/curriculum-factory')} className="text-purple-600">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Curriculum Factory
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/admin/data-sets')} className="text-amber-600">
+              <Database className="h-4 w-4 mr-2" />
+              Data Set Creator
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate('/admin/rag-upload')} className="text-indigo-600">
               <Upload className="h-4 w-4 mr-2" />

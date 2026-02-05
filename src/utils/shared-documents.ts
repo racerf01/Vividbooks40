@@ -62,13 +62,9 @@ export async function loadSharedDocument(id: string): Promise<{ success: boolean
       .from('shared_documents')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        // No rows returned - document not found
-        return { success: false, error: 'Document not found' };
-      }
       console.error('Error loading shared document:', error);
       return { success: false, error: error.message };
     }
@@ -108,7 +104,7 @@ export async function isDocumentShared(id: string): Promise<boolean> {
       .from('shared_documents')
       .select('id')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     return !error && !!data;
   } catch {

@@ -65,13 +65,33 @@ export interface StudentStats {
 }
 
 // ============================================
-// EVENT QUEUE FOR BATCHING
+// EVENT QUEUE FOR BATCHING - OPTIMIZED FOR DISK IO
 // ============================================
 
 const eventQueue: AnalyticsEvent[] = [];
 let flushTimeout: NodeJS.Timeout | null = null;
-const FLUSH_INTERVAL = 5000; // Flush every 5 seconds
-const MAX_QUEUE_SIZE = 20; // Or when queue reaches 20 events
+
+// DISK IO OPTIMIZATION: Zvýšený interval a velikost batch
+const FLUSH_INTERVAL = 30000; // Flush every 30 seconds (was 5s)
+const MAX_QUEUE_SIZE = 50; // Or when queue reaches 50 events (was 20)
+
+// Sampling - některé události trackujeme jen občas
+const SAMPLING_RATES: Record<string, number> = {
+  'page_viewed': 1.0,        // 100% - důležité
+  'document_opened': 1.0,    // 100% - důležité  
+  'session_started': 1.0,    // 100% - důležité
+  'session_ended': 1.0,      // 100% - důležité
+  'ai_generation_completed': 1.0, // 100% - sledujeme náklady
+  'document_time_spent': 0.2, // 20% sampling - high volume
+  'student_time_spent': 0.2,  // 20% sampling - high volume
+  'filter_applied': 0.1,      // 10% sampling - very high volume
+};
+
+// Check if event should be tracked based on sampling
+const shouldTrackEvent = (eventName: string): boolean => {
+  const rate = SAMPLING_RATES[eventName] ?? 1.0; // Default: track all
+  return Math.random() < rate;
+};
 
 // ============================================
 // HELPER FUNCTIONS
@@ -198,18 +218,28 @@ export function useAnalytics(providedUserId?: string, providedSchoolId?: string)
     }
   }, []);
 
-  // Core tracking function
+  // Core tracking function with sampling support
   const trackEvent = useCallback((
     eventName: string,
     category: EventCategory,
     properties?: Record<string, unknown>
   ) => {
+    // DISK IO OPTIMIZATION: Check sampling rate
+    if (!shouldTrackEvent(eventName)) {
+      if (import.meta.env.DEV) {
+        console.log('[Analytics] Sampled out:', eventName);
+      }
+      return;
+    }
+
     const event: AnalyticsEvent = {
       event_name: eventName,
       category,
       properties: {
         ...properties,
         session_id: sessionId.current,
+        // DISK IO OPTIMIZATION: Neposílat device info u každé události
+        // Device info posíláme jen u session_started
       },
       user_id: userId,
       school_id: schoolId,
@@ -219,9 +249,9 @@ export function useAnalytics(providedUserId?: string, providedSchoolId?: string)
     // Add to queue
     eventQueue.push(event);
     
-    // Log in dev
-    if (import.meta.env.DEV) {
-      console.log('[Analytics]', eventName, { userId, schoolId, ...properties });
+    // Log in dev (but not too verbose)
+    if (import.meta.env.DEV && eventQueue.length <= 3) {
+      console.log('[Analytics]', eventName, { userId, schoolId });
     }
 
     scheduleFlush();

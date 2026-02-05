@@ -42,13 +42,15 @@ import {
   Monitor,
 } from 'lucide-react';
 import { useDeviceDetect } from '../../hooks/useDeviceDetect';
-import { Quiz, QuizSlide, ABCActivitySlide, OpenActivitySlide, ExampleActivitySlide, BoardActivitySlide, VotingActivitySlide, ConnectPairsActivitySlide, FillBlanksActivitySlide, ImageHotspotsActivitySlide, VideoQuizActivitySlide, InfoSlide, LiveQuizSession, SlideResponse } from '../../types/quiz';
+import { Quiz, QuizSlide, ABCActivitySlide, OpenActivitySlide, ExampleActivitySlide, BoardActivitySlide, VotingActivitySlide, ConnectPairsActivitySlide, FillBlanksActivitySlide, ImageHotspotsActivitySlide, VideoQuizActivitySlide, InfoSlide, LiveQuizSession, SlideResponse, ToolsSlide } from '../../types/quiz';
 import { BoardSlideView } from './slides/BoardSlideView';
 import { VotingSlideView } from './slides/VotingSlideView';
 import { ConnectPairsView } from './slides/ConnectPairsView';
 import { FillBlanksView } from './slides/FillBlanksView';
 import { ImageHotspotsView } from './slides/ImageHotspotsView';
 import { VideoQuizView } from './slides/VideoQuizView';
+import { FormView } from './slides/FormView';
+import { CertificateView } from './slides/CertificateView';
 import { useBoardPosts } from '../../hooks/useBoardPosts';
 import { ShareEditDialog } from './ShareEditDialog';
 import { useVoting } from '../../hooks/useVoting';
@@ -251,6 +253,10 @@ function ABCSlideView({ slide, showHint, showSolution, selectedAnswer, onSelectA
               src={slide.media!.url} 
               alt="Obrázek k otázce"
               className="max-w-full max-h-40 object-contain rounded-xl shadow-lg"
+              onError={(e) => {
+                // Hide broken images
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
             />
           </div>
         )}
@@ -289,6 +295,9 @@ function ABCSlideView({ slide, showHint, showSolution, selectedAnswer, onSelectA
               src={slide.media!.url} 
               alt="Obrázek k otázce"
               className="max-w-full max-h-full object-contain rounded-2xl shadow-lg"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
             />
           </div>
         </div>
@@ -352,6 +361,9 @@ function OpenSlideView({ slide }: { slide: OpenActivitySlide }) {
           src={slide.media.url} 
           alt="Obrázek k otázce"
           className="mb-6 max-w-full max-h-48 md:max-h-64 rounded-xl shadow-lg object-contain"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = 'none';
+          }}
         />
       )}
       
@@ -502,6 +514,7 @@ export function QuizViewPage() {
   const [showLiveSettings, setShowLiveSettings] = useState(false);
   const [showQRPopup, setShowQRPopup] = useState<'qr' | 'code' | null>(null);
   const [showModeDropdown, setShowModeDropdown] = useState(false);
+  const [formPreviewAnswer, setFormPreviewAnswer] = useState<Record<string, string | string[]>>({});
   
   // Live session settings
   const [liveShowSolutionHints, setLiveShowSolutionHints] = useState(true);
@@ -2036,8 +2049,31 @@ export function QuizViewPage() {
                 readOnly={true}
               />
             );
+          case 'form':
+            return (
+              <FormView 
+                slide={slide as any}
+                answer={formPreviewAnswer}
+                onAnswerChange={setFormPreviewAnswer}
+                isReadOnly={false}
+              />
+            );
           default:
             return <div className="text-slate-500 text-center">Nepodporovaný typ aktivity</div>;
+        }
+      case 'tools':
+        const toolsSlide = slide as ToolsSlide;
+        switch (toolsSlide.toolType) {
+          case 'certificate':
+            return (
+              <CertificateView 
+                slide={toolsSlide}
+                quiz={quiz}
+                isPreview={true}
+              />
+            );
+          default:
+            return <div className="text-slate-500 text-center">Nepodporovaný typ nástroje</div>;
         }
       default:
         return <div className="text-slate-500 text-center">Nepodporovaný typ slidu</div>;
@@ -2252,6 +2288,30 @@ export function QuizViewPage() {
               {currentSlide ? (
                 <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
                   {renderSlideView(currentSlide)}
+                  
+                  {/* Submit button for form activity */}
+                  {currentSlide.type === 'activity' && (currentSlide as any).activityType === 'form' && (
+                    <div className="p-6 flex justify-center border-t border-slate-100">
+                      <button
+                        onClick={() => {
+                          // In teacher view, just reset the form for testing
+                          setFormPreviewAnswer({});
+                        }}
+                        disabled={
+                          ((currentSlide as any).fields || []).some((field: any) => 
+                            field.required && (
+                              !formPreviewAnswer[field.id] || 
+                              (Array.isArray(formPreviewAnswer[field.id]) && (formPreviewAnswer[field.id] as string[]).length === 0) ||
+                              (typeof formPreviewAnswer[field.id] === 'string' && !(formPreviewAnswer[field.id] as string).trim())
+                            )
+                          )
+                        }
+                        className="px-8 py-3 rounded-xl font-medium transition-colors bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-slate-300 disabled:cursor-not-allowed"
+                      >
+                        Odeslat formulář
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-full text-white/70">

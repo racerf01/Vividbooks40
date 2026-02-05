@@ -27,7 +27,8 @@ export type BlockType =
   | 'image-hotspots'    // Poznávačka - identify points on image
   | 'video-quiz'        // Video quiz with questions at timestamps
   | 'qr-code'           // QR kód s popiskem
-  | 'header-footer';    // Hlavička a patička
+  | 'header-footer'     // Hlavička a patička
+  | 'free-canvas';      // Volné plátno - mini Figma canvas
 
 /**
  * Pozice obrázku v bloku
@@ -490,13 +491,200 @@ export interface HeaderFooterContent {
 }
 
 // ============================================
+// VOLNÉ PLÁTNO - TYPY OBJEKTŮ
+// ============================================
+
+/**
+ * Typy objektů na volném plátně
+ */
+export type CanvasObjectType = 'rectangle' | 'ellipse' | 'line' | 'text' | 'image' | 'arrow' | 'group';
+
+/**
+ * Základní objekt na plátně
+ */
+export interface CanvasObjectBase {
+  /** Unikátní ID objektu */
+  id: string;
+  /** Typ objektu */
+  type: CanvasObjectType;
+  /** X pozice */
+  x: number;
+  /** Y pozice */
+  y: number;
+  /** Šířka */
+  width: number;
+  /** Výška */
+  height: number;
+  /** Rotace ve stupních */
+  rotation?: number;
+  /** Z-index pro vrstvení */
+  zIndex: number;
+  /** Je objekt zamčený? */
+  locked?: boolean;
+}
+
+/**
+ * Obdélník na plátně
+ */
+export interface CanvasRectangle extends CanvasObjectBase {
+  type: 'rectangle';
+  /** Barva výplně */
+  fill?: string;
+  /** Barva ohraničení */
+  stroke?: string;
+  /** Tloušťka ohraničení */
+  strokeWidth?: number;
+  /** Zaoblení rohů */
+  borderRadius?: number;
+}
+
+/**
+ * Elipsa/kruh na plátně
+ */
+export interface CanvasEllipse extends CanvasObjectBase {
+  type: 'ellipse';
+  /** Barva výplně */
+  fill?: string;
+  /** Barva ohraničení */
+  stroke?: string;
+  /** Tloušťka ohraničení */
+  strokeWidth?: number;
+}
+
+/**
+ * Čára na plátně
+ */
+export interface CanvasLine extends CanvasObjectBase {
+  type: 'line';
+  /** Barva čáry */
+  stroke: string;
+  /** Tloušťka čáry */
+  strokeWidth: number;
+  /** Styl čáry */
+  strokeStyle?: 'solid' | 'dashed' | 'dotted';
+  /** Koncové body (relativní k x,y) */
+  points: { x: number; y: number }[];
+}
+
+/**
+ * Šipka na plátně
+ */
+export interface CanvasArrow extends CanvasObjectBase {
+  type: 'arrow';
+  /** Barva šipky */
+  stroke: string;
+  /** Tloušťka čáry */
+  strokeWidth: number;
+  /** Typ šipky (na začátku, na konci, obě) */
+  arrowType: 'end' | 'start' | 'both';
+}
+
+/**
+ * Text na plátně
+ */
+export interface CanvasText extends CanvasObjectBase {
+  type: 'text';
+  /** Obsah textu */
+  text: string;
+  /** Velikost písma */
+  fontSize: number;
+  /** Rodina písma */
+  fontFamily?: string;
+  /** Barva textu */
+  fill: string;
+  /** Tučné */
+  bold?: boolean;
+  /** Kurzíva */
+  italic?: boolean;
+  /** Zarovnání */
+  align?: 'left' | 'center' | 'right';
+}
+
+/**
+ * Obrázek na plátně
+ */
+export interface CanvasImage extends CanvasObjectBase {
+  type: 'image';
+  /** URL obrázku */
+  url: string;
+  /** Alternativní text */
+  alt?: string;
+  /** Způsob vyplnění */
+  objectFit?: 'contain' | 'cover' | 'fill';
+}
+
+/**
+ * Skupina objektů na plátně
+ */
+export interface CanvasGroup extends CanvasObjectBase {
+  type: 'group';
+  /** ID objektů ve skupině */
+  children: string[];
+}
+
+/**
+ * Union type pro všechny objekty na plátně
+ */
+export type CanvasObject = 
+  | CanvasRectangle 
+  | CanvasEllipse 
+  | CanvasLine 
+  | CanvasArrow 
+  | CanvasText 
+  | CanvasImage
+  | CanvasGroup;
+
+/**
+ * Obsah bloku s volným plátnem
+ */
+export interface FreeCanvasContent {
+  /** Zadání aktivity */
+  instruction?: string;
+  /** Objekty na plátně */
+  objects: CanvasObject[];
+  /** Barva pozadí plátna */
+  backgroundColor?: string;
+  /** Šířka plátna v px (default = šířka bloku) */
+  canvasWidth?: number;
+  /** Výška plátna v px */
+  canvasHeight: number;
+  /** Zobrazit mřížku */
+  showGrid?: boolean;
+  /** Velikost mřížky v px */
+  gridSize?: number;
+  /** Styl kroužku s číslem */
+  circleColor?: string;
+  circleSize?: number;
+}
+
+// ============================================
 // BLOKY
 // ============================================
 
 /**
- * Šířka bloku v layoutu
+ * Šířka bloku v layoutu (legacy)
  */
 export type BlockWidth = 'full' | 'half';
+
+/**
+ * PRO: Počet sloupců gridu
+ */
+export type GridColumns = 1 | 2 | 3 | 6 | 12;
+
+/**
+ * PRO: Mezera mezi sloupci gridu
+ */
+export type GridGap = 'none' | 'small' | 'medium' | 'large';
+
+/**
+ * PRO: Hodnoty mezer v pixelech
+ */
+export const GRID_GAP_VALUES: Record<GridGap, number> = {
+  none: 0,
+  small: 8,
+  medium: 16,
+  large: 24,
+};
 
 /**
  * Vizuální styly aplikovatelné na jakýkoliv blok
@@ -513,6 +701,8 @@ export interface BlockVisualStyles {
   borderColor?: string;
   /** Šířka ohraničení v pixelech */
   borderWidth?: number;
+  /** Styl ohraničení */
+  borderStyle?: 'solid' | 'dashed' | 'dotted';
   /** Zaoblení rohů v pixelech */
   borderRadius?: number;
   /** Stín (none, small, medium, large) */
@@ -527,14 +717,35 @@ interface BaseBlock {
   id: string;
   /** Pořadí bloku v pracovním listu */
   order: number;
-  /** Šířka bloku (plná nebo poloviční) */
+  /** Šířka bloku (plná nebo poloviční) - legacy */
   width: BlockWidth;
-  /** Procentuální šířka při half-width (10-90, default 50) */
+  /** Procentuální šířka při half-width (10-90, default 50) - legacy */
   widthPercent?: number;
+  /** PRO: Kolik sloupců gridu blok zabírá (1-12) */
+  gridSpan?: number;
+  /** PRO: Na kterém sloupci gridu blok začíná (1-12) */
+  gridStart?: number;
+  
+  // ========== FREEFORM CANVAS PROPERTIES ==========
+  /** Freeform: X position on canvas in pixels */
+  posX?: number;
+  /** Freeform: Y position on canvas in pixels */
+  posY?: number;
+  /** Freeform: Width of block in pixels (null = auto based on content) */
+  blockWidth?: number;
+  /** Freeform: Height of block in pixels (null = auto based on content) */
+  blockHeight?: number;
+  /** Freeform: Which page this block belongs to (0-indexed) */
+  pageIndex?: number;
+  /** Freeform: Z-index for layering */
+  zIndex?: number;
+  
   /** Spodní odsazení v pixelech */
   marginBottom?: number;
   /** Styl spodního odsazení */
   marginStyle?: SpacerStyle;
+  /** Vnitřní odsazení bloku v pixelech */
+  padding?: number;
   /** Volitelný obrázek připojený k bloku */
   image?: BlockImage;
   /** Vizuální styly bloku */
@@ -662,6 +873,14 @@ export interface HeaderFooterBlock extends BaseBlock {
 }
 
 /**
+ * Blok s volným plátnem (mini Figma canvas)
+ */
+export interface FreeCanvasBlock extends BaseBlock {
+  type: 'free-canvas';
+  content: FreeCanvasContent;
+}
+
+/**
  * Union type pro všechny typy bloků
  */
 export type WorksheetBlock = 
@@ -679,7 +898,8 @@ export type WorksheetBlock =
   | ImageHotspotsBlock
   | VideoQuizBlock
   | QRCodeBlock
-  | HeaderFooterBlock;
+  | HeaderFooterBlock
+  | FreeCanvasBlock;
 
 // ============================================
 // METADATA A PRACOVNÍ LIST
@@ -709,10 +929,24 @@ export interface WorksheetMetadata {
   keywords?: string[];
   /** Téma/kapitola */
   topic?: string;
-  /** Počet sloupců (1 nebo 2) */
+  /** Počet sloupců (1 nebo 2) - legacy */
   columns?: ColumnCount;
   /** Globální velikost písma */
   globalFontSize?: GlobalFontSize;
+  
+  // === PRO GRID SYSTEM ===
+  /** PRO: Počet sloupců gridu (default: 12) */
+  gridColumns?: GridColumns;
+  /** PRO: Mezera mezi sloupci */
+  gridGap?: GridGap;
+  
+  // === PRO LAYOUT MODE ===
+  /** PRO: Režim layoutu - grid (pro AI) nebo freeform (pro ruční úpravy) */
+  layoutMode?: 'grid' | 'freeform';
+  
+  // === PRO PAGE STYLING ===
+  /** PRO: Barva pozadí stránky (default: bílá) */
+  pageBackgroundColor?: string;
 }
 
 /**
@@ -768,6 +1002,7 @@ export type BlockContentByType = {
   'image-hotspots': ImageHotspotsContent;
   'video-quiz': VideoQuizContent;
   'qr-code': QRCodeContent;
+  'free-canvas': FreeCanvasContent;
 };
 
 // ============================================
@@ -836,6 +1071,9 @@ export const DEFAULT_WORKSHEET_METADATA: WorksheetMetadata = {
   estimatedTime: 15,
   keywords: [],
   globalFontSize: 'small',
+  // PRO defaults
+  gridColumns: 12,
+  gridGap: 'medium',
 };
 
 /**
@@ -1217,6 +1455,24 @@ export function createEmptyBlock(type: BlockType, order: number): WorksheetBlock
           feedbackCount: 5,
           feedbackText: 'Tento pracovní list se mi vyplňoval:',
           showFooterInfo: true,
+        },
+      };
+    case 'free-canvas':
+      return {
+        id,
+        type: 'free-canvas',
+        order,
+        width: 'full',
+        content: {
+          instruction: '',
+          objects: [],
+          canvasWidth: 750,  // A4 width minus margins
+          canvasHeight: 400,
+          backgroundColor: '#ffffff',
+          showGrid: true,
+          gridSize: 20,
+          circleColor: '#1e293b',
+          circleSize: 21,
         },
       };
   }

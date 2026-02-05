@@ -81,8 +81,25 @@ export interface DocumentItem {
 // =============================================
 
 async function getCurrentUserId(): Promise<string | null> {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.user?.id || null;
+  try {
+    // First try getSession
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user?.id) {
+      return session.user.id;
+    }
+    
+    // Fallback: try getUser (might refresh token)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.id) {
+      return user.id;
+    }
+    
+    console.warn('[DocumentStorage] No authenticated user found');
+    return null;
+  } catch (error) {
+    console.error('[DocumentStorage] getCurrentUserId error:', error);
+    return null;
+  }
 }
 
 function notifyDocumentChange(): void {
@@ -448,3 +465,81 @@ export async function migrateToSupabase(): Promise<{ success: boolean; migrated:
   }
 }
 
+/**
+ * Uložit dokument přímo do Supabase (bez závislosti na localStorage)
+ * Používat když localStorage quota exceeded
+ */
+export async function syncDocumentDirectToSupabase(doc: {
+  id: string;
+  title: string;
+  content: string;
+  documentType?: string;
+  sectionImages?: any[];
+}): Promise<boolean> {
+  const MAX_RETRIES = 3;
+  
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      console.log(`[DocumentStorage] Direct sync attempt ${attempt}/${MAX_RETRIES} for:`, doc.id);
+      
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        console.error('[DocumentStorage] No user ID for direct sync');
+        if (attempt < MAX_RETRIES) {
+          // Wait and retry - session might be loading
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          continue;
+        }
+        return false;
+      }
+      
+      const upsertData = {
+        id: doc.id,
+        teacher_id: userId,
+        title: doc.title || 'Dokument',
+        content: doc.content || '',
+        document_type: doc.documentType || 'document',
+        section_images: doc.sectionImages || [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      
+      console.log('[DocumentStorage] Upserting with data:', {
+        id: upsertData.id,
+        teacher_id: upsertData.teacher_id,
+        title: upsertData.title,
+        contentLength: upsertData.content.length,
+        sectionImagesCount: upsertData.section_images.length,
+      });
+      
+      const { error, data } = await supabase
+        .from('teacher_documents')
+        .upsert(upsertData, { onConflict: 'id' })
+        .select('id');
+      
+      if (error) {
+        console.error('[DocumentStorage] Direct sync failed:', error.message, error.code, error.details);
+        if (attempt < MAX_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          continue;
+        }
+        return false;
+      }
+      
+      // Mark as synced
+      supabaseDocIds.add(doc.id);
+      
+      console.log('[DocumentStorage] ✅ Direct sync completed for:', doc.id);
+      return true;
+    } catch (error) {
+      console.error(`[DocumentStorage] Direct sync error (attempt ${attempt}):`, error);
+      if (attempt < MAX_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        continue;
+      }
+    }
+  }
+  
+  console.error('[DocumentStorage] ❌ All sync attempts failed for:', doc.id);
+  return false;
+}

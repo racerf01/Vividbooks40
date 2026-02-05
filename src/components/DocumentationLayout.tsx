@@ -49,6 +49,7 @@ import { SUBJECTS } from '../types/profile';
 import { useViewMode } from '../contexts/ViewModeContext';
 import { saveSharedDocument, loadSharedDocument } from '../utils/shared-documents';
 import * as quizStorage from '../utils/quiz-storage';
+import { supabase } from '../utils/supabase/client';
 import {
   Select,
   SelectContent,
@@ -409,6 +410,12 @@ export function DocumentationLayout({ theme, toggleTheme }: DocumentationLayoutP
   const [menuHovered, setMenuHovered] = useState(false);
   const [logoHovered, setLogoHovered] = useState(false);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+  
+  // Lightbox galerie
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImages, setLightboxImages] = useState<{ url: string; title: string }[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  
   const contentRef = useRef<HTMLDivElement>(null);
   const tocScrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -669,6 +676,64 @@ export function DocumentationLayout({ theme, toggleTheme }: DocumentationLayoutP
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [readerMode]);
 
+  // Lightbox galerie - zpracování kliků na obrázky
+  useEffect(() => {
+    if (!contentRef.current) return;
+    
+    const handleGalleryClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const figure = target.closest('figure[data-gallery-image]');
+      if (!figure) return;
+      
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Najít všechny obrázky v galerii (nebo všechny figure s data-gallery-image na stránce)
+      const gallery = figure.closest('.image-gallery');
+      const allFigures = gallery 
+        ? Array.from(gallery.querySelectorAll('figure[data-gallery-image]'))
+        : Array.from(contentRef.current!.querySelectorAll('figure[data-gallery-image]'));
+        
+      const images = allFigures.map(fig => ({
+        url: fig.getAttribute('data-image-url') || '',
+        title: fig.getAttribute('data-image-title') || '',
+      })).filter(img => img.url);
+      
+      const clickedIndex = allFigures.indexOf(figure);
+      
+      console.log('[Lightbox] Opening with', images.length, 'images, index:', clickedIndex);
+      
+      setLightboxImages(images);
+      setLightboxIndex(clickedIndex >= 0 ? clickedIndex : 0);
+      setLightboxOpen(true);
+    };
+    
+    const container = contentRef.current;
+    container.addEventListener('click', handleGalleryClick);
+    
+    return () => {
+      container?.removeEventListener('click', handleGalleryClick);
+    };
+  }, [page?.id]); // Re-register když se změní stránka
+  
+  // Keyboard navigation pro lightbox - separátní effect
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setLightboxOpen(false);
+      } else if (e.key === 'ArrowLeft') {
+        setLightboxIndex(prev => (prev > 0 ? prev - 1 : lightboxImages.length - 1));
+      } else if (e.key === 'ArrowRight') {
+        setLightboxIndex(prev => (prev < lightboxImages.length - 1 ? prev + 1 : 0));
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxOpen, lightboxImages.length]);
+
   // Scroll tracking for section media
   useEffect(() => {
     if (!page?.sectionImages || page.sectionImages.length === 0 || !contentRef.current) {
@@ -767,7 +832,19 @@ export function DocumentationLayout({ theme, toggleTheme }: DocumentationLayoutP
 
     try {
       // First, check vivid-doc-${id} (user-created documents in localStorage)
-      const docData = localStorage.getItem(`vivid-doc-${contentId}`);
+      console.log('[DocumentView] Looking for localStorage key:', `vivid-doc-${contentId}`);
+      let docData = localStorage.getItem(`vivid-doc-${contentId}`);
+      
+      // Try without suffix if not found
+      if (!docData) {
+        const strippedId = contentId.replace(/-(text|lesson|document|worksheet)$/, '');
+        if (strippedId !== contentId) {
+          console.log('[DocumentView] Trying stripped localStorage key:', `vivid-doc-${strippedId}`);
+          docData = localStorage.getItem(`vivid-doc-${strippedId}`);
+        }
+      }
+      
+      console.log('[DocumentView] localStorage result:', docData ? 'FOUND' : 'NOT FOUND');
       if (docData) {
         const data = JSON.parse(docData);
         setPage({
@@ -821,7 +898,92 @@ export function DocumentationLayout({ theme, toggleTheme }: DocumentationLayoutP
         }
       }
 
-      // Third, try to load from Supabase (shared documents)
+      // Third, try to load from teacher_documents (generated documents)
+      console.log('[DocumentView] Trying teacher_documents for:', contentId);
+      
+      // Try exact ID first, then without suffix (e.g., "xxx-text" -> "xxx")
+      let teacherDoc = null;
+      let teacherError = null;
+      
+      // Use .maybeSingle() instead of .single() to avoid 406 errors
+      const { data: exactMatch, error: exactError } = await supabase
+        .from('teacher_documents')
+        .select('*')
+        .eq('id', contentId)
+        .maybeSingle();
+      
+      if (!exactError && exactMatch) {
+        teacherDoc = exactMatch;
+      } else {
+        // Try without common suffixes (-text, -lesson, etc.)
+        const strippedId = contentId.replace(/-(text|lesson|document|worksheet)$/, '');
+        if (strippedId !== contentId) {
+          console.log('[DocumentView] Trying stripped ID:', strippedId);
+          const { data: strippedMatch, error: strippedError } = await supabase
+            .from('teacher_documents')
+            .select('*')
+            .eq('id', strippedId)
+            .maybeSingle();
+          if (!strippedError && strippedMatch) {
+            teacherDoc = strippedMatch;
+          } else {
+            teacherError = exactError;
+          }
+        } else {
+          teacherError = exactError;
+        }
+      }
+      
+      console.log('[DocumentView] teacher_documents result:', JSON.stringify({ 
+        hasDoc: !!teacherDoc, 
+        docId: teacherDoc?.id,
+        docTitle: teacherDoc?.title,
+        error: teacherError?.message || teacherError?.code || null 
+      }));
+      
+      if (!teacherError && teacherDoc) {
+        // Content může být JSON wrapper s html a sectionImages
+        let htmlContent = teacherDoc.content || '';
+        // Prioritně použít section_images z databáze (snake_case)
+        let sectionImages: any[] = teacherDoc.section_images || [];
+        
+        try {
+          const parsed = JSON.parse(teacherDoc.content);
+          if (parsed.html !== undefined) {
+            htmlContent = parsed.html;
+            // Fallback na sectionImages uvnitř content JSON pokud není v DB
+            if (sectionImages.length === 0) {
+              sectionImages = parsed.sectionImages || [];
+            }
+          }
+        } catch {
+          // Content je přímo HTML string
+        }
+        
+        console.log('[DocumentView] Loaded from teacher_documents:', {
+          id: teacherDoc.id,
+          title: teacherDoc.title,
+          contentLength: htmlContent.length,
+          sectionImagesCount: sectionImages.length,
+        });
+        
+        setPage({
+          id: teacherDoc.id,
+          slug: teacherDoc.id,
+          title: teacherDoc.title || 'Bez názvu',
+          content: htmlContent,
+          description: teacherDoc.description || '',
+          category: 'my-content',
+          featuredMedia: teacherDoc.featured_media,
+          sectionImages: sectionImages,
+          documentType: teacherDoc.document_type || 'lesson',
+          showTOC: true,
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Fourth, try to load from shared_documents
       const result = await loadSharedDocument(contentId);
       if (result.success && result.document) {
         const doc = result.document;
@@ -842,7 +1004,12 @@ export function DocumentationLayout({ theme, toggleTheme }: DocumentationLayoutP
       }
 
       // Not found anywhere
-      setError('Položka nenalezena');
+      console.error('[DocumentView] Document not found anywhere:', contentId);
+      const availableKeys = Object.keys(localStorage).filter(k => k.startsWith('vivid-doc-'));
+      console.log('[DocumentView] Available localStorage keys:', availableKeys.slice(0, 10));
+      
+      // Store the missing ID for recovery option
+      setError(`notfound:${contentId}`);
     } catch (err) {
       console.error('Error loading my content:', err);
       setError('Chyba při načítání');
@@ -2291,20 +2458,52 @@ Ujisti se, že všechny otázky a úlohy vycházejí přímo z obsahu dokumentu 
               })()
             ) : error ? (
               <div className="text-center py-8 md:py-12 px-4">
-                <h1 className="text-2xl md:text-4xl mb-4" style={{ fontWeight: 600 }}>Error</h1>
-                <p className="text-muted-foreground text-sm md:text-base mb-6">{error}</p>
+                <h1 className="text-2xl md:text-4xl mb-4" style={{ fontWeight: 600 }}>
+                  {error.startsWith('notfound:') ? 'Dokument nenalezen' : 'Chyba'}
+                </h1>
+                <p className="text-muted-foreground text-sm md:text-base mb-4">
+                  {error.startsWith('notfound:') 
+                    ? 'Tento dokument neexistuje nebo byl smazán.'
+                    : error}
+                </p>
+                {error.startsWith('notfound:') && (
+                  <p className="text-xs text-muted-foreground mb-6 font-mono bg-muted px-3 py-2 rounded inline-block">
+                    ID: {error.replace('notfound:', '')}
+                  </p>
+                )}
                 <div className="flex flex-col items-center gap-3">
+                  {error.startsWith('notfound:') && (
+                    <button
+                      onClick={() => {
+                        const missingId = error.replace('notfound:', '');
+                        // Create empty document with this ID
+                        const docData = {
+                          id: missingId,
+                          title: 'Obnovený dokument',
+                          content: '<p>Obsah dokumentu byl ztracen. Prosím, vytvořte ho znovu.</p>',
+                          documentType: 'document',
+                          updatedAt: new Date().toISOString(),
+                        };
+                        localStorage.setItem(`vivid-doc-${missingId}`, JSON.stringify(docData));
+                        // Reload
+                        window.location.reload();
+                      }}
+                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+                    >
+                      Vytvořit prázdný dokument
+                    </button>
+                  )}
                   <Link 
-                    to="/" 
+                    to="/library/my-content" 
                     className="text-primary hover:underline"
                   >
-                    ← Back to home
+                    ← Zpět na moje materiály
                   </Link>
                   <Link 
-                    to="/admin/login" 
-                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    to="/" 
+                    className="text-muted-foreground hover:text-foreground transition-colors text-sm"
                   >
-                    Go to admin panel to create pages
+                    Domů
                   </Link>
                 </div>
               </div>
@@ -3080,6 +3279,90 @@ Ujisti se, že všechny otázky a úlohy vycházejí přímo z obsahu dokumentu 
           await submitNPS(score, feedback);
         }}
       />
+
+      {/* Lightbox galerie */}
+      {lightboxOpen && lightboxImages.length > 0 && (
+        <div 
+          className="fixed inset-0 z-[9999] flex"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.95)' }}
+          onClick={() => setLightboxOpen(false)}
+        >
+          {/* Hlavní obrázek */}
+          <div className="flex-1 flex items-center justify-center p-8" onClick={(e) => e.stopPropagation()}>
+            <div className="relative max-w-full max-h-full">
+              <img 
+                src={lightboxImages[lightboxIndex]?.url} 
+                alt={lightboxImages[lightboxIndex]?.title}
+                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+              />
+              <p className="text-white text-center mt-4 text-lg">
+                {lightboxImages[lightboxIndex]?.title}
+              </p>
+            </div>
+            
+            {/* Navigační šipky */}
+            {lightboxImages.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setLightboxIndex(prev => prev > 0 ? prev - 1 : lightboxImages.length - 1); }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full text-white hover:bg-white/20 transition-colors"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+                >
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setLightboxIndex(prev => prev < lightboxImages.length - 1 ? prev + 1 : 0); }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full text-white hover:bg-white/20 transition-colors"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+                >
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
+          
+          {/* Boční panel s miniaturami */}
+          <div 
+            className="w-48 bg-black/50 overflow-y-auto p-3 space-y-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-white/60 text-xs mb-2 text-center">
+              {lightboxIndex + 1} / {lightboxImages.length}
+            </div>
+            {lightboxImages.map((img, idx) => (
+              <div
+                key={idx}
+                onClick={() => setLightboxIndex(idx)}
+                className={`cursor-pointer rounded-lg overflow-hidden transition-all ${
+                  idx === lightboxIndex ? 'ring-2 ring-white scale-105' : 'opacity-60 hover:opacity-100'
+                }`}
+              >
+                <img 
+                  src={img.url} 
+                  alt={img.title}
+                  className="w-full h-24 object-cover"
+                />
+                <p className="text-white text-xs p-1 truncate bg-black/50">{img.title}</p>
+              </div>
+            ))}
+          </div>
+          
+          {/* Zavřít tlačítko */}
+          <button
+            onClick={() => setLightboxOpen(false)}
+            className="absolute top-4 right-56 p-2 rounded-full text-white hover:bg-white/20 transition-colors"
+            style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

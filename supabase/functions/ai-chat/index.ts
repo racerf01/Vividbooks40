@@ -30,7 +30,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { messages, model, temperature = 0.7, max_tokens = 2048, thinking_level }: ChatRequest = await req.json()
+    const { messages, model, temperature = 0.7, max_tokens = 8192, thinking_level }: ChatRequest = await req.json()
+
+    console.log(`Request: model=${model}, max_tokens=${max_tokens}`)
 
     if (!messages || messages.length === 0) {
       throw new Error('Messages are required')
@@ -62,18 +64,23 @@ Deno.serve(async (req) => {
       // Determine model version first (needed for thinking config)
       // See: https://ai.google.dev/gemini-api/docs/gemini-3
       let geminiModel: string
-      const isGemini3 = model.includes('gemini-3') || (model.includes('3') && model.includes('flash'))
+      const isGemini3Pro = model.includes('gemini-3-pro') || model.includes('gemini-3 pro')
+      const isGemini3Flash = model.includes('gemini-3-flash') || model.includes('gemini-3 flash') || (model.includes('3') && model.includes('flash'))
+      const isGemini3 = isGemini3Pro || isGemini3Flash
       
-      if (isGemini3) {
-        // Gemini 3 Flash (preview) - released December 2025
+      if (isGemini3Pro) {
+        // Gemini 3 Pro - for complex reasoning tasks
+        geminiModel = 'gemini-3-pro-preview'
+      } else if (isGemini3Flash) {
+        // Gemini 3 Flash - for fast, simple tasks
         geminiModel = 'gemini-3-flash-preview'
       } else if (model.includes('2.0')) {
         geminiModel = 'gemini-2.0-flash'
       } else if (model.includes('2.5') || model.includes('gemini-2.5')) {
         geminiModel = 'gemini-2.5-flash'
       } else {
-        // Default to Gemini 2.5 Flash (stable)
-        geminiModel = 'gemini-2.5-flash'
+        // Default to Gemini 3 Flash (latest)
+        geminiModel = 'gemini-3-flash-preview'
       }
       
       const geminiBody: any = {

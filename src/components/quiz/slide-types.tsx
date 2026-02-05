@@ -8,9 +8,11 @@ import {
   Puzzle, 
   Link2, 
   MapPin, 
-  Film, 
+  Film,
+  FileText,
+  Award,
 } from 'lucide-react';
-import { SlideType, ActivityType } from '../../types/quiz';
+import { SlideType, ActivityType, ToolType } from '../../types/quiz';
 
 // Custom SVG Icons from Design
 const InfoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
@@ -45,6 +47,7 @@ export interface SlideTypeOption {
   id: string;
   type: SlideType;
   activityType?: ActivityType;
+  toolType?: ToolType;
   category?: ActivityCategory;
   label: string;
   icon: React.ReactNode;
@@ -134,6 +137,16 @@ export const SLIDE_TYPES: SlideTypeOption[] = [
     color: '#03CA90',
     description: 'Textová odpověď',
   },
+  {
+    id: 'form',
+    type: 'activity',
+    activityType: 'form',
+    category: 'non-evaluable',
+    label: 'Formulář',
+    icon: <FileText className="w-5 h-5" />,
+    color: '#03CA90',
+    description: 'Vlastní formulář s poli',
+  },
   // LIVE ACTIVITIES (Red)
   {
     id: 'board',
@@ -157,11 +170,12 @@ export const SLIDE_TYPES: SlideTypeOption[] = [
   },
   // Tool slides
   {
-    id: 'tools',
+    id: 'certificate',
     type: 'tools',
-    label: 'Nástroje',
-    icon: <ToolsIcon />,
+    toolType: 'certificate',
+    label: 'Certifikát',
+    icon: <Award className="w-5 h-5" />,
     color: '#FF8158',
-    description: 'Interaktivní nástroje',
+    description: 'Certifikát pro účastníky',
   },
 ];

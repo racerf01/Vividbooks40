@@ -1,9 +1,9 @@
 {
       "name": "Documentation Website Specification",
-  "version": "0.1.0",
-  "private": true,
-  "homepage": "https://vividbooks.github.io/Vividbooks40",
-  "dependencies": {
+      "version": "0.1.0",
+      "private": true,
+      "homepage": "https://vividbooks.github.io/Vividbooks40",
+      "dependencies": {
             "@dnd-kit/core": "*",
             "@dnd-kit/modifiers": "^9.0.0",
             "@dnd-kit/sortable": "*",
@@ -77,6 +77,8 @@
             "qrcode.react": "^4.2.0",
             "react": "^18.3.1",
             "react-day-picker": "^8.10.1",
+            "react-dnd": "^16.0.1",
+            "react-dnd-html5-backend": "^16.0.1",
             "react-dom": "^18.3.1",
             "react-hook-form": "^7.55.0",
             "react-katex": "^3.1.0",

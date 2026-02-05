@@ -9,6 +9,8 @@ import { MyContentLayout } from './components/MyContentLayout';
 import { MyContentEditor } from './components/MyContentEditor';
 import { MyClassesLayout } from './components/MyClassesLayout';
 import { WorksheetEditorLayout } from './components/WorksheetEditorLayout';
+import { ProEditorLayout } from './components/worksheet-editor-pro';
+import { WorkbookProLayout } from './components/workbook-editor-pro';
 import { PaperTestPage } from './components/worksheet-editor/PaperTestPage';
 import { PaperTestUploadPage } from './components/worksheet-editor/PaperTestUploadPage';
 import { QuizEditorLayout } from './components/quiz/QuizEditorLayout';
@@ -31,6 +33,8 @@ import { JoinSession } from './components/classroom/JoinSession';
 import { CustomerSuccess } from './components/admin/CustomerSuccess';
 import { MigrationAgent } from './components/admin/MigrationAgent';
 import { RAGBulkUpload } from './components/admin/RAGBulkUpload';
+import { CurriculumFactory } from './components/admin/CurriculumFactory';
+import { DataSetCreator } from './components/admin/DataSetCreator';
 import { StudentProfilePage } from './components/classroom/StudentProfilePage';
 import ClassChatLayout from './components/classroom/ClassChatLayout';
 import { StudentLoginPage, StudentSetupPassword, StudentDashboard, LiveSessionNotification } from './components/student';
@@ -61,10 +65,24 @@ function QuizNewRedirect() {
   return <Navigate to={targetUrl} replace />;
 }
 
+// OFFLINE MODE: Skip Supabase auth when ?offline=1 in URL or localStorage 'vividbooks-offline-mode' is set
+const isOfflineMode = () => {
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('offline') === '1') {
+      localStorage.setItem('vividbooks-offline-mode', 'true');
+      return true;
+    }
+    return localStorage.getItem('vividbooks-offline-mode') === 'true';
+  }
+  return false;
+};
+
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [offlineMode] = useState(isOfflineMode);
 
   useEffect(() => {
     // Check for saved theme preference
@@ -74,10 +92,22 @@ export default function App() {
       document.documentElement.classList.toggle('dark', savedTheme === 'dark');
     }
 
+    // OFFLINE MODE: Skip auth check entirely
+    if (offlineMode) {
+      console.log('[App] 🔌 OFFLINE MODE - skipping Supabase auth');
+      setIsCheckingAuth(false);
+      setIsAuthenticated(true); // Pretend we're authenticated for admin routes
+      return;
+    }
+
     // Check for existing session
     checkAuth();
     
-    // Listen for auth state changes (login/logout)
+    // Listen for auth state changes (login/logout) - skip in offline mode
+    if (offlineMode) {
+      return; // No cleanup needed
+    }
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('[App] Auth state change:', event, session?.user?.email);
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
@@ -93,7 +123,7 @@ export default function App() {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [offlineMode]);
 
   // Track if sync is already running
   const syncInProgress = useRef(false);
@@ -488,6 +518,54 @@ export default function App() {
           } 
         />
         
+        {/* Worksheet Editor Pro - Advanced internal editor */}
+        <Route 
+          path="/admin/worksheet-pro/:id" 
+          element={
+            isAuthenticated || isOfflineMode() ? (
+              <ProEditorLayout theme={theme} toggleTheme={toggleTheme} />
+            ) : (
+              <Navigate to="/admin/login" replace />
+            )
+          } 
+        />
+        
+        {/* Worksheet Editor Pro - New worksheet */}
+        <Route 
+          path="/admin/worksheet-pro" 
+          element={
+            isAuthenticated || isOfflineMode() ? (
+              <Navigate to={`/admin/worksheet-pro/${Date.now()}`} replace />
+            ) : (
+              <Navigate to="/admin/login" replace />
+            )
+          } 
+        />
+        
+        {/* Workbook Editor Pro - Figma-style workbook editor */}
+        <Route 
+          path="/admin/workbook-pro/:id" 
+          element={
+            isAuthenticated || isOfflineMode() ? (
+              <WorkbookProLayout theme={theme} toggleTheme={toggleTheme} />
+            ) : (
+              <Navigate to="/admin/login" replace />
+            )
+          } 
+        />
+        
+        {/* Workbook Editor Pro - New workbook */}
+        <Route 
+          path="/admin/workbook-pro" 
+          element={
+            isAuthenticated || isOfflineMode() ? (
+              <Navigate to={`/admin/workbook-pro/${Date.now()}`} replace />
+            ) : (
+              <Navigate to="/admin/login" replace />
+            )
+          } 
+        />
+        
         <Route 
           path="/library/my-content/worksheet-editor/:id" 
           element={<WorksheetEditorLayout theme={theme} toggleTheme={toggleTheme} />} 
@@ -580,6 +658,28 @@ export default function App() {
           element={
             isAuthenticated ? (
               <MigrationAgent />
+            ) : (
+              <Navigate to="/admin/login" replace />
+            )
+          } 
+        />
+        
+        <Route 
+          path="/admin/curriculum-factory" 
+          element={
+            isAuthenticated ? (
+              <CurriculumFactory />
+            ) : (
+              <Navigate to="/admin/login" replace />
+            )
+          } 
+        />
+        
+        <Route 
+          path="/admin/data-sets" 
+          element={
+            isAuthenticated ? (
+              <DataSetCreator />
             ) : (
               <Navigate to="/admin/login" replace />
             )

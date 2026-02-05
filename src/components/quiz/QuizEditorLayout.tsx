@@ -134,13 +134,16 @@ import {
   createFillBlanksSlide, 
   createImageHotspotsSlide, 
   createConnectPairsSlide, 
-  createVideoQuizSlide, 
+  createVideoQuizSlide,
+  createFormSlide,
+  createCertificateSlide,
   FillBlanksActivitySlide, 
   ImageHotspotsActivitySlide, 
   ConnectPairsActivitySlide, 
   VideoQuizActivitySlide,
   OpenActivitySlide,
   ExampleActivitySlide,
+  ToolsSlide,
   getTemplateById,
 } from '../../types/quiz';
 import { getContrastColor } from '../../utils/color-utils';
@@ -161,6 +164,8 @@ import { ConnectPairsEditor } from './slides/ConnectPairsEditor';
 import { FillBlanksEditor } from './slides/FillBlanksEditor';
 import { ImageHotspotsEditor } from './slides/ImageHotspotsEditor';
 import { VideoQuizEditor } from './slides/VideoQuizEditor';
+import { FormEditor } from './slides/FormEditor';
+import { CertificateEditor } from './slides/CertificateEditor';
 import { SlideTextToolbar } from './slides/SlideTextToolbar';
 import { BackgroundPicker } from './slides/BackgroundPicker';
 import { PageSettingsPanel, LayoutIcon } from './slides/PageSettingsPanel';
@@ -1779,6 +1784,12 @@ export function QuizEditorLayout({ theme = 'light' }: QuizEditorLayoutProps) {
       case 'video-quiz':
         newSlide = createVideoQuizSlide(order);
         break;
+      case 'form':
+        newSlide = createFormSlide(order);
+        break;
+      case 'certificate':
+        newSlide = createCertificateSlide(order);
+        break;
       case 'info':
       default:
         newSlide = createInfoSlide(order);
@@ -1817,6 +1828,8 @@ export function QuizEditorLayout({ theme = 'light' }: QuizEditorLayoutProps) {
       case 'connect-pairs': template = createConnectPairsSlide(currentSlide.order); break;
       case 'image-hotspots': template = createImageHotspotsSlide(currentSlide.order); break;
       case 'video-quiz': template = createVideoQuizSlide(currentSlide.order); break;
+      case 'form': template = createFormSlide(currentSlide.order); break;
+      case 'certificate': template = createCertificateSlide(currentSlide.order); break;
       case 'info':
       default: template = createInfoSlide(currentSlide.order); break;
     }
@@ -4376,7 +4389,8 @@ export function QuizEditorLayout({ theme = 'light' }: QuizEditorLayoutProps) {
                         },
                         () => {
                           setEditingTextBlockIndex(null);
-                        }
+                        },
+                        quiz
                       )}
                     </div>
                     
@@ -4628,50 +4642,46 @@ function renderSlideEditor(
   onBlockSelect: (index: number | null) => void,
   onOpenBlockSettings?: (blockIndex: number) => void,
   onTextEditStart?: (blockIndex: number) => void,
-  onTextEditEnd?: () => void
-): React.ReactNode {
-  switch (slide.type) {
-    case 'info':
-      const infoSlide = slide as InfoSlide;
-      return (
-        <InfoSlideEditor 
-          key={`${slide.id}-${infoSlide.layout?.type || 'default'}-${infoSlide.layout?.blocks?.length || 0}`}
-          slide={slide} 
-          onUpdate={onUpdate} 
-          onSlideClick={onSlideClick} 
-          selectedBlockIndex={selectedBlockIndex}
-          onBlockSelect={onBlockSelect}
-          onOpenBlockSettings={onOpenBlockSettings}
-          onTextEditStart={onTextEditStart}
-          onTextEditEnd={onTextEditEnd}
-        />
-      );
-    case 'activity':
-      switch ((slide as any).activityType) {
-        case 'abc':
-          return <ABCSlideEditor slide={slide as any} onUpdate={onUpdate} />;
-        case 'open':
-          return <OpenSlideEditor slide={slide as any} onUpdate={onUpdate} />;
-        case 'example':
-          return <ExampleSlideEditor slide={slide as any} onUpdate={onUpdate} />;
-        case 'board':
-          return <BoardSlideEditor slide={slide as any} onUpdate={onUpdate} />;
-        case 'voting':
-          return <VotingSlideEditor slide={slide as any} onUpdate={onUpdate} />;
-        case 'connect-pairs':
-          return <ConnectPairsEditor slide={slide as ConnectPairsActivitySlide} onUpdate={onUpdate} />;
-        case 'fill-blanks':
-          return <FillBlanksEditor slide={slide as FillBlanksActivitySlide} onUpdate={onUpdate} />;
-        case 'image-hotspots':
-          return <ImageHotspotsEditor slide={slide as ImageHotspotsActivitySlide} onUpdate={onUpdate} />;
-        case 'video-quiz':
-          return <VideoQuizEditor slide={slide as VideoQuizActivitySlide} onUpdate={onUpdate} />;
-        default:
-          return <div>Nepodporovaný typ aktivity</div>;
-      }
-    default:
-      return <div>Nepodporovaný typ slidu</div>;
+  onTextEditEnd?: () => void,
+  quiz?: Quiz | null
+) {
+  if (slide.type === 'info') {
+    return (
+      <InfoSlideEditor 
+        slide={slide as InfoSlide} 
+        onUpdate={onUpdate}
+        selectedBlockIndex={selectedBlockIndex}
+        onBlockSelect={onBlockSelect}
+        onOpenBlockSettings={onOpenBlockSettings}
+        onTextEditStart={onTextEditStart}
+        onTextEditEnd={onTextEditEnd}
+      />
+    );
   }
+  
+  if (slide.type === 'activity') {
+    const activity = slide as any;
+    switch (activity.activityType) {
+      case 'abc':
+        return <ABCSlideEditor slide={activity} onUpdate={onUpdate} />;
+      case 'open':
+        return <OpenSlideEditor slide={activity} onUpdate={onUpdate} />;
+      case 'example':
+        return <ExampleSlideEditor slide={activity} onUpdate={onUpdate} />;
+      case 'board':
+        return <BoardSlideEditor slide={activity} onUpdate={onUpdate} />;
+      case 'voting':
+        return <VotingSlideEditor slide={activity} onUpdate={onUpdate} />;
+      default:
+        return (
+          <div className="p-8 text-center text-slate-500">
+            Editor pro tento typ aktivity ({activity.activityType}) zatím není k dispozici.
+          </div>
+        );
+    }
+  }
+
+  return null;
 }
 
 export default QuizEditorLayout;

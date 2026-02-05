@@ -5,6 +5,34 @@
 
 ---
 
+## ⚠️ KRITICKÁ PRAVIDLA - PŘEČTI NEJDŘÍVE!
+
+### 🔴 Tlačítka - VŽDY použij inline styly!
+
+**PROBLÉM:** V projektu existují globální CSS styly, které přepisují Tailwind třídy `bg-*` u tlačítek. Tlačítka pak nemají výplň a jsou neviditelná.
+
+**ŘEŠENÍ:** Pro tlačítka VŽDY používej **inline styly** místo Tailwind tříd pro barvy:
+
+```tsx
+// ❌ ŠPATNĚ - Tailwind třídy se přepíšou globálním CSS
+<button className="bg-blue-500 text-white">Klikni</button>
+
+// ✅ SPRÁVNĚ - Inline styly mají nejvyšší prioritu
+<button style={{ backgroundColor: '#3b82f6', color: 'white', padding: '8px 16px', borderRadius: '8px', border: 'none' }}>
+  Klikni
+</button>
+```
+
+**Běžné barvy:**
+- Modrá: `#3b82f6` (blue-500), `#2563eb` (blue-600)
+- Zelená: `#22c55e` (green-500), `#10b981` (emerald-500)
+- Červená: `#ef4444` (red-500)
+- Oranžová: `#f97316` (orange-500), `#f59e0b` (amber-500)
+- Fialová: `#a855f7` (purple-500)
+- Šedá: `#475569` (slate-600)
+
+---
+
 ## 🗄️ Databázové Schéma (Supabase)
 
 ### Učitelský obsah (RLS enabled - teacher_id = auth.uid())
